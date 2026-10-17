@@ -26,7 +26,7 @@ Một team Meta Ads chạy trên Claude Code, kèm trang web văn phòng pixel �
 
 Bấm vào bàn từng người để xem nhiệm vụ, kết quả và **đề xuất cho Leader** (tích vào ô khi bạn đã tự làm xong). Bấm vào phòng Leader (hoặc nút **Viết brief**) để viết brief. Bật **Tự cập nhật** để web đọc lại trạng thái mỗi 10 giây.
 
-Phần brief lúc đầu là **brief mẫu** (nhãn "BRIEF MẪU" ở thanh dưới). Báo cáo ngày trên TV là số liệu thật.
+Báo cáo ngày trên TV là số liệu thật. Các bộ phận 02–07 ở trạng thái "Rảnh" cho tới khi bạn giao brief đầu tiên.
 
 ## Giao việc cho team
 1. Viết brief trên web → **Copy lệnh cho Claude Code**.
