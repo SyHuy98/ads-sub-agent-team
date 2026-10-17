@@ -1,4 +1,5 @@
-// Giao diện quanh văn phòng: panel chi tiết, form brief của Leader, đọc lại data/state.js.
+// Giao diện quanh văn phòng: panel chi tiết, form brief / KPI / nhật ký của Leader,
+// báo cáo ngày, và đọc lại các file data/*.js do Claude Code cập nhật.
 (function () {
   const TEAM = window.TEAM;
   const panel = document.getElementById("panel");
@@ -7,7 +8,12 @@
   const STORE = "ads-hq:";
 
   let state = window.OFFICE_STATE || { agents: {} };
+  let config = window.ADS_CONFIG || { accounts: [], kpi: {} };
+  let daily = window.ADS_DAILY || { accounts: {} };
+  let changelog = window.ADS_CHANGELOG || { entries: [] };
   let view = { kind: "overview" };
+  // Bộ phận nhận brief (08 chạy theo lịch riêng, không nhận brief).
+  const BRIEF_AGENTS = TEAM.agents.filter((a) => !a.daily);
 
   // localStorage có thể bị chặn (chế độ riêng tư) → luôn bọc try/catch.
   const store = {
@@ -35,6 +41,10 @@
     return isNaN(d) ? iso : d.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" });
   }
 
+  const money = (v) => v == null || isNaN(v) ? "—" : Math.round(v).toLocaleString("vi-VN") + "đ";
+  const short = (v) => window.shortMoney(v);
+  const num = (v, d) => v == null || isNaN(v) ? "—" : Number(v).toLocaleString("vi-VN", { maximumFractionDigits: d || 0 });
+
   function toast(msg) {
     const el = document.createElement("div");
     el.className = "toast";
@@ -52,6 +62,11 @@
       let title, line;
       if (id === "leader") { title = "LEADER · BẠN"; line = `${(state.awaitingLeader || []).length} việc chờ bạn duyệt · bấm để viết brief`; }
       else if (id === "assistant") { title = "CLAUDE CODE"; line = (state.assistant && state.assistant.message) || "Trợ lý điều phối & báo cáo"; }
+      else if (id === "daily-reporter") {
+        const acc = firstAccount(), d = acc && acc.data.days[acc.data.days.length - 1];
+        title = "08 DAILY REPORT";
+        line = d ? `${daily.date}: chi ${short(d.spend)} · ${d.messages} tin nhắn · ${d.leads} lead · ${(acc.data.alerts || []).length} cảnh báo` : "Chưa có báo cáo ngày · bấm để xem";
+      }
       else { const d = agentDef(id), s = agentState(id); title = `${d.no} ${d.name}`; line = `${window.STATUS_LABEL[s.status || "idle"]}${s.task ? " · " + s.task : ""}`; }
       tooltip.innerHTML = `<b>${esc(title)}</b>${esc(line)}`;
       tooltip.hidden = false;
@@ -64,6 +79,7 @@
   function open(id) {
     if (id === "leader") view = { kind: "brief" };
     else if (id === "assistant") view = { kind: "assistant" };
+    else if (id === "daily-reporter") view = { kind: "daily", account: view.account };
     else view = { kind: "agent", id };
     office.select(id);
     renderPanel();
@@ -96,7 +112,8 @@
     return `<ul class="recs">${recs.map((r) => {
       const done = store.get(recKey(agentId, r.id), false);
       return `<li class="${done ? "checked" : ""}"><input type="checkbox" data-agent="${esc(agentId)}" data-rec="${esc(r.id)}" ${done ? "checked" : ""} aria-label="Đánh dấu đã tự thực hiện">
-        <span>${esc(r.text)}${r.priority ? `<em class="prio ${prioClass(r.priority)}">${esc(r.priority)}</em>` : ""}</span></li>`;
+        <span>${esc(r.text)}${r.priority ? `<em class="prio ${prioClass(r.priority)}">${esc(r.priority)}</em>` : ""}
+        <button type="button" class="btn btn-mini dalam" data-dalam="${esc(r.text)}" title="Copy lệnh ghi nhật ký để team đo lại">⧉ Ghi nhật ký</button></span></li>`;
     }).join("")}</ul>`;
   }
 
@@ -113,13 +130,15 @@
   }
 
   function viewOverview() {
-    const done = TEAM.agents.filter((a) => agentState(a.id).status === "done").length;
+    const n = BRIEF_AGENTS.length;
+    const done = BRIEF_AGENTS.filter((a) => agentState(a.id).status === "done").length;
     return `
       <h2>TỔNG QUAN</h2>
-      <p class="muted">Brief đang chạy</p>
+      <h3>Báo cáo ngày</h3>${dailyCardHtml()}
+      <h3>Brief đang chạy</h3>
       <p><b>${esc((state.activeBrief && state.activeBrief.title) || "Chưa có brief")}</b></p>
-      <div class="progress" title="${done}/6 bộ phận đã xong"><i style="width:${Math.round(done / 6 * 100)}%"></i></div>
-      <p class="muted">${done}/6 bộ phận đã xong</p>
+      <div class="progress" title="${done}/${n} bộ phận đã xong"><i style="width:${Math.round(done / n * 100)}%"></i></div>
+      <p class="muted">${done}/${n} bộ phận đã xong</p>
       <h3>Chờ bạn duyệt</h3>${awaitingHtml()}
       <h3>Đội hình</h3>
       <ul class="team-list">
@@ -128,6 +147,164 @@
         ${TEAM.agents.map((a) => `<li data-open="${a.id}"><span class="no">${a.no}</span><span>${esc(a.name)}</span>${statusPill(agentState(a.id).status || "idle")}</li>`).join("")}
       </ul>
       <h3>Báo cáo gần đây</h3>${reportsHtml()}`;
+  }
+
+  // ---------- Báo cáo ngày ----------
+  function accountIds() { return Object.keys(daily.accounts || {}).filter((k) => (daily.accounts[k].days || []).length); }
+  function firstAccount(pick) {
+    const ids = accountIds();
+    const id = ids.includes(pick) ? pick : ids[0];
+    return id ? { id, data: daily.accounts[id] } : null;
+  }
+
+  function dailyCardHtml() {
+    const acc = firstAccount();
+    if (!acc) return `<div class="card">Chưa có báo cáo ngày. Lịch tự chạy mỗi sáng ~7h52, hoặc gõ <code>/bao-cao-ngay</code>.</div>`;
+    const d = acc.data.days[acc.data.days.length - 1];
+    const alerts = acc.data.alerts || [];
+    const red = alerts.filter((a) => a.level === "đỏ").length;
+    return `<div class="card daily-card" data-open="daily-reporter">
+      <div class="card-title"><b>${esc(acc.data.name || acc.id)}</b><span class="muted">${esc(daily.date)}</span></div>
+      <div class="kpi-mini"><span>Chi <b>${short(d.spend)}</b></span><span>Tin nhắn <b>${num(d.messages)}</b> · ${short(d.costPerMessage)}</span><span>Lead <b>${num(d.leads)}</b> · ${short(d.costPerLead)}</span></div>
+      <div>${alerts.length ? `<span class="pill ${red ? "s-alert" : "s-waiting"}">${alerts.length} cảnh báo${red ? ` (${red} đỏ)` : ""}</span>` : `<span class="pill s-done">Không có cảnh báo</span>`} <span class="muted">→ xem chi tiết</span></div>
+    </div>`;
+  }
+
+  // Đánh giá 1 chỉ số: so với KPI nếu có, không thì so với TB 7 ngày.
+  // dir = -1: càng thấp càng tốt (chi phí, tần suất); +1: càng cao càng tốt.
+  function judge(v, avg, kpi, dir) {
+    if (v == null || isNaN(v)) return "";
+    const ref = kpi != null ? kpi : avg;
+    if (ref == null || ref === 0) return "";
+    const r = dir < 0 ? v / ref : ref / Math.max(v, 1e-9);
+    if (kpi != null && r <= 1) return "good";
+    if (r > 1.3) return "bad";
+    if (r > 1.15 || (kpi != null && r > 1)) return "warn";
+    return "good";
+  }
+
+  // Số lượng kết quả phụ thuộc chi tiêu nên tối đa chỉ "warn".
+  const cap = (j) => j === "bad" ? "warn" : j;
+
+  function dailyChart(days) {
+    const w = 360, h = 120, padL = 4, padB = 18, n = days.length;
+    const bw = (w - padL * 2) / n;
+    const maxR = Math.max(1, ...days.map((d) => (d.messages || 0) + (d.leads || 0)));
+    const maxS = Math.max(1, ...days.map((d) => d.spend || 0));
+    const bars = days.map((d, i) => {
+      const x = padL + i * bw + 2, bwI = bw - 4;
+      const hm = (h - padB - 8) * (d.messages || 0) / maxR, hl = (h - padB - 8) * (d.leads || 0) / maxR;
+      const base = h - padB;
+      return `<rect x="${x}" y="${base - hm}" width="${bwI}" height="${hm}" fill="var(--working)"><title>${esc(d.date)}: ${d.messages} tin nhắn</title></rect>
+        <rect x="${x}" y="${base - hm - hl}" width="${bwI}" height="${hl}" fill="var(--done)"><title>${esc(d.date)}: ${d.leads} lead</title></rect>`;
+    }).join("");
+    const pts = days.map((d, i) => `${(padL + i * bw + bw / 2).toFixed(1)},${(h - padB - (h - padB - 8) * (d.spend || 0) / maxS).toFixed(1)}`).join(" ");
+    const lab = (i, anchor) => `<text x="${padL + i * bw + bw / 2}" y="${h - 4}" text-anchor="${anchor}" fill="var(--muted)" font-size="13">${esc(days[i].date.slice(5).split("-").reverse().join("/"))}</text>`;
+    return `<svg class="chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Biểu đồ ${n} ngày: tin nhắn, lead và chi tiêu">
+      ${bars}<polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+      ${lab(0, "start")}${lab(n - 1, "end")}</svg>
+      <div class="chart-legend"><span><i class="dot s-working"></i>Tin nhắn</span><span><i class="dot s-done"></i>Lead</span><span><i class="dot" style="background:var(--accent)"></i>Chi tiêu</span></div>`;
+  }
+
+  function viewDaily() {
+    const ids = accountIds();
+    const acc = firstAccount(view.account);
+    const s = agentState("daily-reporter");
+    const head = `<div class="who"><span data-avatar></span><div><div class="who-no">08</div><h2>BÁO CÁO NGÀY</h2><div class="muted">Daily Reporter · tự chạy mỗi sáng ~7h52</div></div></div>`;
+    if (!acc) {
+      return `${head}${statusPill(s.status || "idle")}
+        <div class="card">Chưa có số liệu. Sáng mai lịch hẹn giờ sẽ tự chạy, hoặc gõ <code>/bao-cao-ngay</code> trong Claude Code.</div>
+        <h3>KPI đang áp dụng</h3>${kpiSummaryHtml()}`;
+    }
+    const data = acc.data, days = data.days, d = days[days.length - 1], avg = data.avg7 || {}, k = config.kpi || {};
+    const rows = [
+      ["Chi tiêu", money(d.spend), money(avg.spend), k.dailyBudget != null ? money(k.dailyBudget) : "—",
+        avg.spend && Math.abs(d.spend - avg.spend) / avg.spend * 100 > (k.spendDeviationPct || 30) ? "warn" : ""],
+      ["Tin nhắn", num(d.messages), num(avg.messages, 1), "—", cap(judge(d.messages, avg.messages, null, 1))],
+      ["Chi phí / tin nhắn", money(d.costPerMessage), money(avg.costPerMessage), money(k.costPerMessage), judge(d.costPerMessage, avg.costPerMessage, k.costPerMessage, -1)],
+      ["Lead", num(d.leads), num(avg.leads, 1), "—", cap(judge(d.leads, avg.leads, null, 1))],
+      ["Chi phí / lead", money(d.costPerLead), money(avg.costPerLead), money(k.costPerLead), judge(d.costPerLead, avg.costPerLead, k.costPerLead, -1)],
+      ["CTR", num(d.ctr, 2) + "%", num(avg.ctr, 2) + "%", k.minCtr != null ? "≥ " + num(k.minCtr, 2) + "%" : "—", judge(d.ctr, avg.ctr, k.minCtr, 1)],
+      ["CPM", money(d.cpm), money(avg.cpm), "—", judge(d.cpm, avg.cpm, null, -1)],
+      ["Tần suất", num(d.frequency, 2), num(avg.frequency, 2), k.maxFrequency != null ? "≤ " + num(k.maxFrequency, 1) : "—", judge(d.frequency, avg.frequency, k.maxFrequency, -1)],
+    ];
+    const alerts = data.alerts || [];
+    return `${head}${statusPill(s.status || "idle")}
+      ${ids.length > 1 ? `<label class="acc-pick">Tài khoản <select id="acc-pick">${ids.map((id) => `<option value="${esc(id)}" ${id === acc.id ? "selected" : ""}>${esc(daily.accounts[id].name || id)}</option>`).join("")}</select></label>` : ""}
+      <p><b>${esc(data.name || acc.id)}</b> · ngày <b>${esc(daily.date)}</b> <span class="muted">· cập nhật ${esc(fmtTime(daily.updatedAt))}</span></p>
+      <table class="kpi-table"><thead><tr><th>Chỉ số</th><th>Hôm qua</th><th>TB 7 ngày</th><th>KPI</th></tr></thead>
+        <tbody>${rows.map((r) => `<tr class="${r[4] ? "j-" + r[4] : ""}"><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("")}</tbody></table>
+      <h3>${days.length} ngày gần nhất</h3>${dailyChart(days)}
+      <h3>Cảnh báo</h3>${alerts.length ? alerts.map((a) => `<div class="card alert-${a.level === "đỏ" ? "red" : "yellow"}"><b>[${esc(a.level)}] ${esc(a.scope || "")}</b><br>${esc(a.text)}</div>`).join("") : `<p class="muted">Không có cảnh báo.</p>`}
+      ${(data.topCampaigns || []).length ? `<h3>Campaign chi tiêu nhiều nhất</h3><table class="kpi-table"><thead><tr><th>Campaign</th><th>Chi</th><th>TN</th><th>Lead</th></tr></thead><tbody>${data.topCampaigns.map((c) => `<tr><td>${esc(c.name)}</td><td>${short(c.spend)}</td><td>${num(c.messages)} · ${short(c.costPerMessage)}</td><td>${num(c.leads)} · ${short(c.costPerLead)}</td></tr>`).join("")}</tbody></table>` : ""}
+      <h3>Đề xuất — Leader tự thực hiện</h3>${recsHtml("daily-reporter", s.recommendations)}
+      ${daily.reportFile ? `<p><a href="${esc(daily.reportFile)}" target="_blank" rel="noopener">Mở báo cáo ngày đầy đủ →</a></p>` : ""}
+      <h3>KPI đang áp dụng</h3>${kpiSummaryHtml()}`;
+  }
+
+  // ---------- KPI & nhật ký ----------
+  const KPI_FIELDS = [
+    { k: "costPerMessage", label: "Chi phí / tin nhắn tối đa", unit: "đ", ph: "VD: 60000" },
+    { k: "costPerLead", label: "Chi phí / lead tối đa", unit: "đ", ph: "VD: 150000" },
+    { k: "dailyBudget", label: "Chi tiêu dự kiến / ngày", unit: "đ", ph: "VD: 5000000" },
+    { k: "maxFrequency", label: "Tần suất tối đa", unit: "", ph: "VD: 3" },
+    { k: "minCtr", label: "CTR tối thiểu", unit: "%", ph: "VD: 1.5" },
+    { k: "spendDeviationPct", label: "Chi tiêu lệch TB 7 ngày", unit: "%", ph: "VD: 30" },
+  ];
+
+  function kpiSummaryHtml() {
+    const k = config.kpi || {};
+    const set = KPI_FIELDS.filter((f) => k[f.k] != null);
+    if (!set.length) return `<p class="muted">Chưa đặt ngưỡng nào — báo cáo chỉ so với TB 7 ngày. Đặt ở Bàn Leader.</p>`;
+    return `<ul class="kpi-list">${KPI_FIELDS.map((f) => `<li><span>${esc(f.label)}</span><b>${k[f.k] == null ? "chưa đặt" : (f.unit === "đ" ? money(k[f.k]) : num(k[f.k], 2) + f.unit)}</b></li>`).join("")}</ul>`;
+  }
+
+  function kpiFormHtml() {
+    const k = config.kpi || {};
+    return `<form class="form" id="kpi-form" autocomplete="off">
+      <div class="row-2">${KPI_FIELDS.map((f) => `<label>${esc(f.label)}${f.unit ? ` (${f.unit})` : ""}<input type="text" inputmode="decimal" name="${f.k}" placeholder="${esc(f.ph)}" value="${k[f.k] == null ? "" : esc(k[f.k])}"></label>`).join("")}</div>
+      <div class="form-actions"><button type="button" class="btn btn-claude" data-act="kpi">⧉ Copy lệnh /kpi</button></div>
+      <p class="muted">Để trống = không đặt ngưỡng. Dán lệnh vào Claude Code để lưu vào <code>data/config.js</code>.</p>
+    </form>`;
+  }
+
+  function changelogHtml() {
+    const list = changelog.entries || [];
+    const items = list.length ? list.slice(0, 8).map((e) => `<div class="card">
+        <div class="card-title"><b>${esc(e.change)}</b><span class="pill ${e.status === "đã đo" ? (e.verdict === "tốt" ? "s-done" : e.verdict === "xấu" ? "s-alert" : "s-idle") : "s-waiting"}">${esc(e.status === "đã đo" ? e.verdict || "đã đo" : "đo ngày " + (e.reviewAfter || "?"))}</span></div>
+        <span class="muted">${esc(e.date)} · ${esc(e.scope || "")}</span>
+        ${e.lesson ? `<br>💡 ${esc(e.lesson)}` : ""}</div>`).join("")
+      : `<p class="muted">Chưa có thay đổi nào được ghi.</p>`;
+    const draft = store.get("dalam-draft", "");
+    return `${items}
+      <form class="form" id="dalam-form" autocomplete="off">
+        <label>Tôi đã làm…<textarea name="change" placeholder="VD: Tăng ngân sách campaign Tin nhắn T11 từ 500k lên 700k/ngày">${esc(draft)}</textarea></label>
+        <div class="form-actions"><button type="button" class="btn btn-claude" data-act="dalam">⧉ Copy lệnh /da-lam</button></div>
+        <p class="muted">Team ghi baseline hôm nay và tự đo lại sau 3–7 ngày trong báo cáo ngày.</p>
+      </form>`;
+  }
+
+  function wireLeaderForms() {
+    const kf = document.getElementById("kpi-form");
+    kf.addEventListener("click", async (e) => {
+      if (!e.target.closest("[data-act=kpi]")) return;
+      const fd = new FormData(kf);
+      const parts = KPI_FIELDS.map((f) => {
+        const v = String(fd.get(f.k) || "").trim().replace(/\s/g, "");
+        return `${f.k}=${v === "" ? "null" : v}`;
+      });
+      await copyText(`/kpi ${parts.join(", ")}`);
+      toast("Đã copy lệnh /kpi — dán vào Claude Code");
+    });
+    const df = document.getElementById("dalam-form");
+    df.addEventListener("input", () => store.set("dalam-draft", df.elements.change.value));
+    df.addEventListener("click", async (e) => {
+      if (!e.target.closest("[data-act=dalam]")) return;
+      const v = df.elements.change.value.trim();
+      if (!v) { toast("Ghi việc bạn đã làm trước đã"); return; }
+      await copyText(`/da-lam ${v}`);
+      toast("Đã copy lệnh /da-lam — dán vào Claude Code");
+    });
   }
 
   function viewAgent(id) {
@@ -150,8 +327,8 @@
       <h3>Lời nhắn cho Leader</h3><p>${esc(a.message || "Sẵn sàng nhận brief.")}</p>
       ${a.reportFile ? `<p><a href="${esc(a.reportFile)}" target="_blank" rel="noopener">Mở báo cáo tổng hợp →</a></p>` : ""}
       <h3>Cách giao việc</h3>
-      <div class="card">1. Viết brief ở phòng Leader → <b>Copy lệnh</b>.<br>2. Dán vào Claude Code (mở trong thư mục repo này).<br>3. Claude Code giao việc cho 6 bộ phận, cập nhật văn phòng và viết báo cáo vào <code>reports/</code>.</div>
-      <div class="card">Lệnh nhanh: <code>/brief</code> giao brief · <code>/bao-cao</code> hỏi tình hình team.</div>
+      <div class="card">1. Viết brief ở phòng Leader → <b>Copy lệnh</b>.<br>2. Dán vào Claude Code (mở trong thư mục repo này).<br>3. Claude Code giao việc cho các bộ phận, cập nhật văn phòng và viết báo cáo vào <code>reports/</code>.</div>
+      <div class="card">Lệnh nhanh: <code>/brief</code> giao brief · <code>/bao-cao</code> tình hình team · <code>/bao-cao-ngay</code> báo cáo Ads ngày · <code>/kpi</code> đặt ngưỡng · <code>/da-lam</code> ghi thay đổi đã làm.</div>
       <h3>Báo cáo</h3>${reportsHtml()}`;
   }
 
@@ -173,7 +350,7 @@
   ];
 
   function loadDraft() {
-    return store.get("brief-draft", { assign: TEAM.agents.map((a) => a.id) });
+    return store.get("brief-draft", { assign: BRIEF_AGENTS.map((a) => a.id) });
   }
 
   function fieldHtml(f, draft) {
@@ -194,7 +371,7 @@
       <form class="form" id="brief-form" autocomplete="off">
         ${BRIEF_FIELDS.map((f) => f.row ? `<div class="row-2">${f.row.map((x) => fieldHtml(x, draft)).join("")}</div>` : fieldHtml(f, draft)).join("")}
         <div><span class="muted">Giao cho</span>
-          <div class="checks">${TEAM.agents.map((a) => `<label><input type="checkbox" name="assign" value="${a.id}" ${assign.includes(a.id) ? "checked" : ""}>${a.no} ${esc(a.name)}</label>`).join("")}</div>
+          <div class="checks">${BRIEF_AGENTS.map((a) => `<label><input type="checkbox" name="assign" value="${a.id}" ${assign.includes(a.id) ? "checked" : ""}>${a.no} ${esc(a.name)}</label>`).join("")}</div>
         </div>
         <div class="form-actions">
           <button type="button" class="btn btn-claude" data-act="copy">⧉ Copy lệnh cho Claude Code</button>
@@ -202,7 +379,9 @@
           <button type="button" class="btn btn-ghost" data-act="clear">Xoá nháp</button>
         </div>
       </form>
-      <pre class="preview" id="brief-preview"></pre>`;
+      <pre class="preview" id="brief-preview"></pre>
+      <h3>KPI & ngưỡng cảnh báo</h3>${kpiFormHtml()}
+      <h3>Nhật ký thay đổi</h3>${changelogHtml()}`;
   }
 
   function readForm(form) {
@@ -215,7 +394,7 @@
 
   function briefMarkdown(d) {
     const line = (label, v) => `- **${label}:** ${v || "_(chưa có)_"}`;
-    const assigned = d.assign.length ? d.assign : TEAM.agents.map((a) => a.id);
+    const assigned = d.assign.length ? d.assign : BRIEF_AGENTS.map((a) => a.id);
     return [
       `# Brief: ${d.title || "(chưa đặt tên)"}`,
       "",
@@ -273,7 +452,7 @@
         setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
         toast("Đã tải — bỏ file vào thư mục briefs/");
       } else if (act === "clear") {
-        store.set("brief-draft", { assign: TEAM.agents.map((x) => x.id) });
+        store.set("brief-draft", { assign: BRIEF_AGENTS.map((x) => x.id) });
         renderPanel();
       }
     });
@@ -294,14 +473,18 @@
     if (view.kind === "agent") panel.innerHTML = viewAgent(view.id);
     else if (view.kind === "assistant") panel.innerHTML = viewAssistant();
     else if (view.kind === "brief") panel.innerHTML = viewBrief();
+    else if (view.kind === "daily") panel.innerHTML = viewDaily();
     else panel.innerHTML = viewOverview();
 
     const slot = panel.querySelector("[data-avatar]");
     if (slot) {
-      const def = view.kind === "agent" ? agentDef(view.id) : view.kind === "assistant" ? "assistant" : TEAM.leader;
+      const def = view.kind === "agent" ? agentDef(view.id) : view.kind === "assistant" ? "assistant"
+        : view.kind === "daily" ? agentDef("daily-reporter") : TEAM.leader;
       slot.replaceWith(avatarCanvas(def));
     }
-    if (view.kind === "brief") wireBriefForm();
+    if (view.kind === "brief") { wireBriefForm(); wireLeaderForms(); }
+    const pick = document.getElementById("acc-pick");
+    if (pick) pick.addEventListener("change", () => { view.account = pick.value; renderPanel(); });
   }
 
   panel.addEventListener("change", (e) => {
@@ -311,37 +494,60 @@
       cb.closest("li").classList.toggle("checked", cb.checked);
     }
   });
-  panel.addEventListener("click", (e) => {
+  panel.addEventListener("click", async (e) => {
+    const dl = e.target.closest("[data-dalam]");
+    if (dl) {
+      await copyText(`/da-lam ${dl.dataset.dalam}`);
+      store.set("dalam-draft", dl.dataset.dalam);
+      toast("Đã copy lệnh /da-lam — dán vào Claude Code để team đo lại");
+      return;
+    }
     const li = e.target.closest("[data-open]");
     if (li) open(li.dataset.open);
   });
 
   function renderStatusbar() {
-    const done = TEAM.agents.filter((a) => agentState(a.id).status === "done").length;
+    const done = BRIEF_AGENTS.filter((a) => agentState(a.id).status === "done").length;
     const working = TEAM.agents.filter((a) => ["working", "reporting"].includes(agentState(a.id).status)).length;
+    const acc = firstAccount();
+    const last = acc && acc.data.days[acc.data.days.length - 1];
+    const nAlerts = acc ? Object.values(daily.accounts).reduce((n, a) => n + (a.alerts || []).length, 0) : 0;
     statusbar.innerHTML = `
-      ${state.demo ? `<span class="demo-badge">DỮ LIỆU MẪU</span>` : ""}
+      ${state.demo ? `<span class="demo-badge">BRIEF MẪU</span>` : ""}
+      ${last ? `<span>Hôm qua: <b>chi ${short(last.spend)} · ${num(last.messages)} TN · ${num(last.leads)} lead</b></span><span>Cảnh báo: <b>${nAlerts}</b></span>` : ""}
       <span>Brief: <b>${esc((state.activeBrief && state.activeBrief.title) || "—")}</b></span>
-      <span>Xong: <b>${done}/6</b> · Đang làm: <b>${working}</b></span>
+      <span>Xong: <b>${done}/${BRIEF_AGENTS.length}</b> · Đang làm: <b>${working}</b></span>
       <span>Chờ duyệt: <b>${(state.awaitingLeader || []).length}</b></span>
       <span>Cập nhật: <b>${esc(fmtTime(state.updatedAt))}</b></span>`;
   }
 
-  function applyState(s) {
-    state = s || { agents: {} };
+  function applyState() {
+    state = window.OFFICE_STATE || { agents: {} };
+    config = window.ADS_CONFIG || { accounts: [], kpi: {} };
+    daily = window.ADS_DAILY || { accounts: {} };
+    changelog = window.ADS_CHANGELOG || { entries: [] };
     office.setState(state);
+    office.setDaily(daily);
     renderStatusbar();
-    // không vẽ lại form brief khi đang gõ
+    // không vẽ lại bàn Leader khi đang gõ form
     if (view.kind !== "brief") renderPanel();
   }
 
-  // Đọc lại data/state.js bằng thẻ <script> mới (chạy được cả khi mở file:// trực tiếp).
-  function reloadState(manual) {
-    const s = document.createElement("script");
-    s.src = `data/state.js?t=${Date.now()}`;
-    s.onload = () => { applyState(window.OFFICE_STATE); s.remove(); if (manual) toast("Đã tải lại dữ liệu"); };
-    s.onerror = () => { s.remove(); if (manual) toast("Không đọc được data/state.js"); };
-    document.body.appendChild(s);
+  // Đọc lại các file data/*.js bằng thẻ <script> mới (chạy được cả khi mở file:// trực tiếp).
+  const DATA_FILES = ["state", "config", "daily", "changelog"];
+  function loadScript(name) {
+    return new Promise((resolve) => {
+      const s = document.createElement("script");
+      s.src = `data/${name}.js?t=${Date.now()}`;
+      s.onload = () => { s.remove(); resolve(true); };
+      s.onerror = () => { s.remove(); resolve(false); };
+      document.body.appendChild(s);
+    });
+  }
+  async function reloadState(manual) {
+    const ok = await Promise.all(DATA_FILES.map(loadScript));
+    applyState();
+    if (manual) toast(ok.every(Boolean) ? "Đã tải lại dữ liệu" : "Có file data/*.js không đọc được");
   }
 
   let timer = null;
@@ -360,6 +566,6 @@
   document.getElementById("btn-overview").addEventListener("click", () => { view = { kind: "overview" }; office.select(null); renderPanel(); });
 
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => office.resize());
-  applyState(state);
+  applyState();
   renderPanel();
 })();

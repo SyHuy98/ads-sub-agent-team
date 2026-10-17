@@ -48,6 +48,11 @@ window.TEAM = {
       sub: "Chính sách & kiểm duyệt", prop: "shield",
       look: { hair: "#e0c070", skin: "#f6d3b5", shirt: "#4a8a3c", pants: "#26322a", hairStyle: "long" },
     },
+    {
+      id: "daily-reporter", no: "08", name: "Daily Reporter", short: "DAILY",
+      sub: "Báo cáo Ads mỗi sáng", prop: "tv", daily: true,
+      look: { hair: "#8a3a2a", skin: "#f1c7a3", shirt: "#6b4f8a", pants: "#2a2438", hairStyle: "glasses" },
+    },
   ],
 };
 
@@ -57,4 +62,5 @@ window.STATUS_LABEL = {
   reporting: "Đang nộp báo cáo",
   waiting: "Chờ Leader duyệt",
   done: "Đã xong",
+  alert: "Báo động!",
 };

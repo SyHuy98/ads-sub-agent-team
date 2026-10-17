@@ -1,5 +1,5 @@
 // Văn phòng pixel: vẽ cảnh ở độ phân giải logic 320x256 rồi phóng to (pixelated),
-// chữ (biển tên) vẽ thêm ở độ phân giải thật cho sắc nét.
+// chữ (biển tên, số trên TV) vẽ thêm ở độ phân giải thật cho sắc nét.
 (function () {
   const S = window.SPRITES;
   const W = 320, H = 256;
@@ -9,26 +9,51 @@
   const COLS = [40, 216];
   const ROWS = [124, 172, 220];
 
-  // Vị trí cố định của 6 bàn theo thứ tự 02 → 07 (2 cột x 3 hàng như sơ đồ).
+  // Phòng báo cáo 08 ở góc trên bên phải, TV KPI treo tường.
+  const DAILY_DESK = { x: 244, y: 62 };
+  const TV = { x: 226, y: 3, w: 62, h: 25 };
+
+  // Chỗ đứng khi chạy vào phòng Leader báo động (cạnh phải bàn Leader).
+  const ALERT_ROUTE = [{ x: 162, y: CORRIDOR_Y }, { x: 162, y: 78 }, { x: 199, y: 78 }, { x: 199, y: 58 }];
+
+  // 6 bàn 02 → 07 xếp 2 cột x 3 hàng như sơ đồ; bàn 08 ở phòng báo cáo.
   function layoutAgents(agents) {
+    let gridIndex = 0;
     return agents.map((a, i) => {
-      const deskX = COLS[i % 2], deskY = ROWS[Math.floor(i / 2)];
+      let deskX, deskY, zone, exit;
+      if (a.daily) {
+        deskX = DAILY_DESK.x; deskY = DAILY_DESK.y;
+        zone = { x: 220, y: 0, w: 100, h: 92 };
+        exit = [{ x: 230, y: deskY - 12 }, { x: 230, y: CORRIDOR_Y }];
+      } else {
+        deskX = COLS[gridIndex % 2]; deskY = ROWS[Math.floor(gridIndex / 2)];
+        gridIndex++;
+        zone = { x: deskX - 6, y: deskY - 28, w: DESK_W + 12, h: 52 };
+        exit = [{ x: AISLE_X, y: deskY - 12 }, { x: AISLE_X, y: CORRIDOR_Y }];
+      }
+      const seat = { x: deskX + 30, y: deskY - 12 };
       return {
-        def: a, deskX, deskY,
-        seat: { x: deskX + 30, y: deskY - 12 },
-        zone: { x: deskX - 6, y: deskY - 28, w: DESK_W + 12, h: 52 },
-        walker: { phase: "seat", x: deskX + 30, y: deskY - 12, path: [], timer: 2 + i * 0.7, frame: 0 },
+        def: a, deskX, deskY, seat, zone, exit,
+        walker: { phase: "seat", x: seat.x, y: seat.y, path: [], back: [], timer: 2 + i * 0.7, frame: 0, kind: null },
       };
     });
   }
 
   const LEADER = { deskX: 126, deskY: 62, seat: { x: 155, y: 50 }, zone: { x: 104, y: 30, w: 112, h: 62 } };
   const ASSIST = { deskX: 20, deskY: 62, zone: { x: 6, y: 2, w: 94, h: 90 } };
+  const WALKING = { reporting: true, alert: true };
 
   function skyColor(hour) {
     if (hour >= 6 && hour < 17) return ["#8fd0f5", "#c8ecff"];
     if (hour >= 17 && hour < 19) return ["#f29a6b", "#f7c98b"];
     return ["#1d2550", "#33407a"];
+  }
+
+  function shortMoney(v) {
+    if (v == null || isNaN(v)) return "—";
+    if (v >= 1e6) return (v / 1e6).toLocaleString("vi-VN", { maximumFractionDigits: 1 }) + "tr";
+    if (v >= 1e3) return Math.round(v / 1e3) + "k";
+    return String(Math.round(v));
   }
 
   function createOffice(canvas, opts) {
@@ -39,6 +64,7 @@
 
     const agents = layoutAgents(window.TEAM.agents);
     let state = window.OFFICE_STATE || { agents: {} };
+    let daily = { accounts: {} };
     let hover = null, selected = null, scale = 1;
     const blinkAt = {};
 
@@ -50,6 +76,18 @@
     function blinking(id, t) {
       if (blinkAt[id] === undefined || t > blinkAt[id] + 0.15) blinkAt[id] = t + 2 + Math.random() * 4;
       return t >= blinkAt[id] && t < blinkAt[id] + 0.15;
+    }
+
+    // Tài khoản hiển thị trên TV: tài khoản đầu tiên có số liệu.
+    function tvAccount() {
+      const accs = daily.accounts || {};
+      const id = Object.keys(accs).find((k) => (accs[k].days || []).length);
+      return id ? accs[id] : null;
+    }
+
+    function worstAlert(acc) {
+      const levels = (acc && acc.alerts || []).map((a) => a.level);
+      return levels.includes("đỏ") ? "đỏ" : levels.includes("vàng") ? "vàng" : acc ? "ok" : null;
     }
 
     // ---------- Cảnh nền ----------
@@ -66,6 +104,9 @@
       S.px(c, 22, 108, 276, 140, "#9fb1a8");
       S.px(c, 24, 110, 272, 136, "#a9bbb1");
       for (let x = 30; x < 290; x += 8) S.px(c, x, 110, 4, 1, "#b7c8be");
+      // thảm phòng báo cáo
+      S.px(c, 222, 34, 96, 54, "#b9a7c9");
+      S.px(c, 224, 36, 92, 50, "#c6b6d4");
     }
 
     function drawWall(c, t) {
@@ -73,29 +114,55 @@
       const [sky1, sky2] = skyColor(hour);
       S.px(c, 0, 0, W, 30, "#5d6b7d");
       S.px(c, 0, 28, W, 2, "#4a5666");
-      // cửa sổ ở khu pantry
-      for (const wx of [232, 276]) {
-        S.px(c, wx, 5, 36, 18, "#3d4756");
-        S.px(c, wx + 2, 7, 32, 14, sky1);
-        S.px(c, wx + 2, 7, 32, 5, sky2);
-        S.px(c, wx + 17, 7, 2, 14, "#3d4756");
-        if (hour >= 19 || hour < 6) { S.px(c, wx + 8, 10, 1, 1, "#fff"); S.px(c, wx + 26, 14, 1, 1, "#fff"); }
-        else { const cx = wx + 4 + Math.floor((t * 2 + wx) % 26); S.px(c, cx, 12, 6, 2, "#ffffff"); }
-      }
-      // bảng trắng của Trợ lý
+      // cửa sổ nhỏ góc phải
+      const wx = 292;
+      S.px(c, wx, 5, 24, 18, "#3d4756");
+      S.px(c, wx + 2, 7, 20, 14, sky1);
+      S.px(c, wx + 2, 7, 20, 5, sky2);
+      S.px(c, wx + 11, 7, 2, 14, "#3d4756");
+      if (hour >= 19 || hour < 6) S.px(c, wx + 6, 10, 1, 1, "#fff");
+      else S.px(c, wx + 3 + Math.floor((t * 2) % 14), 12, 5, 2, "#ffffff");
+
+      // bảng trắng của Trợ lý: tiến độ + ô trạng thái từng bộ phận
+      const n = window.TEAM.agents.length;
       S.px(c, 12, 5, 70, 22, "#8a96a8");
       S.px(c, 13, 6, 68, 20, "#f7f8fb");
       const done = countDone();
-      for (let i = 0; i < 6; i++) {
-        const st = statusOf(window.TEAM.agents[i].id);
-        const col = { done: "#4fb06d", waiting: "#e2b53a", working: "#4a7fc0", reporting: "#8a6fc9" }[st] || "#c3c8d2";
-        S.px(c, 16 + i * 10, 18, 7, 5, col);
-      }
-      S.px(c, 16, 9, Math.round(58 * done / 6) || 1, 3, "#4fb06d");
-      S.px(c, 16 + Math.round(58 * done / 6), 9, 58 - Math.round(58 * done / 6), 3, "#dfe3ea");
+      const colors = { done: "#4fb06d", waiting: "#e2b53a", working: "#4a7fc0", reporting: "#8a6fc9", alert: "#e0533d" };
+      window.TEAM.agents.forEach((a, i) => S.px(c, 16 + i * 9, 18, 7, 5, colors[statusOf(a.id)] || "#c3c8d2"));
+      const fill = Math.round(60 * done / n);
+      S.px(c, 16, 9, fill || 1, 3, "#4fb06d");
+      S.px(c, 16 + fill, 9, 60 - fill, 3, "#dfe3ea");
     }
 
-    function drawLeaderRoom(c, t) {
+    function drawTV(c, t) {
+      const acc = tvAccount();
+      S.px(c, TV.x, TV.y, TV.w, TV.h, "#1e2230");
+      S.px(c, TV.x + 2, TV.y + 2, TV.w - 4, TV.h - 4, "#0f1a2e");
+      S.px(c, TV.x + TV.w / 2 - 4, TV.y + TV.h, 8, 2, "#1e2230");
+      // đèn trạng thái
+      const level = worstAlert(acc);
+      const lamp = { "đỏ": "#ff4a3d", "vàng": "#ffc93d", ok: "#47d16c" }[level] || "#5d6577";
+      const on = level !== "đỏ" || Math.floor(t * 3) % 2;
+      S.px(c, TV.x + TV.w - 6, TV.y + 3, 3, 3, on ? lamp : "#3a2020");
+      if (!acc) {
+        // chưa có số liệu: thanh quét
+        const sx = TV.x + 4 + Math.floor((t * 12) % (TV.w - 12));
+        S.px(c, sx, TV.y + 15, 4, 1, "#2f4a6e");
+        return;
+      }
+      // biểu đồ cột 7 ngày: tin nhắn (xanh dương) + lead (xanh lá)
+      const days = acc.days.slice(-7);
+      const max = Math.max(1, ...days.map((d) => (d.messages || 0) + (d.leads || 0)));
+      const bx = TV.x + 37, base = TV.y + TV.h - 4;
+      days.forEach((d, i) => {
+        const hm = Math.round(12 * (d.messages || 0) / max), hl = Math.round(12 * (d.leads || 0) / max);
+        S.px(c, bx + i * 3, base - hm, 2, hm, i === days.length - 1 ? "#7cc4ff" : "#3f78b8");
+        S.px(c, bx + i * 3, base - hm - hl, 2, hl, "#5fd37f");
+      });
+    }
+
+    function drawLeaderRoom(c) {
       S.px(c, 104, 30, 112, 62, "#3d4f7a");
       S.px(c, 112, 38, 96, 46, "#4a5f8f");
       for (let x = 116; x < 204; x += 6) S.px(c, x, 40, 3, 1, "#566c9e");
@@ -113,23 +180,8 @@
       }
     }
 
-    function drawPantry(c, t) {
-      // máy pha cà phê
-      S.px(c, 232, 34, 18, 6, "#8b5e3c");
-      S.px(c, 234, 18, 14, 16, "#2f3340");
-      S.px(c, 236, 21, 10, 4, "#d97757");
-      S.px(c, 239, 28, 4, 4, "#1a1a1f");
-      S.mug(c, 239, 30, t);
-      // bình nước
-      S.px(c, 262, 14, 10, 12, "#9fd3f0");
-      S.px(c, 260, 26, 14, 16, "#e9edf2");
-      S.px(c, 266, 30, 2, 2, "#3f6fb6");
-      // sofa
-      S.px(c, 270, 64, 42, 6, "#c26a54");
-      S.px(c, 270, 70, 42, 10, "#d77d65");
-      S.px(c, 268, 66, 4, 14, "#b05c48");
-      S.px(c, 310, 66, 4, 14, "#b05c48");
-      S.plant(c, 300, 36);
+    function drawDecor(c) {
+      S.plant(c, 302, 36);
       S.plant(c, 4, 70);
     }
 
@@ -141,59 +193,57 @@
       S.px(c, x, y + 2, 10, 8, S.shade(col, 22));
     }
 
-    // ---------- Vật thể sắp theo độ sâu ----------
+    // ---------- Di chuyển: nộp báo cáo / chạy vào báo động ----------
+    function goRoute(a, kind) {
+      if (kind === "alert") return a.exit.concat(ALERT_ROUTE);
+      const idx = Math.max(0, agents.filter((x) => statusOf(x.def.id) === "reporting").indexOf(a));
+      return a.exit.concat([{ x: 34 + idx * 13, y: CORRIDOR_Y }]);
+    }
+
     function updateWalker(a, dt) {
       const w = a.walker;
-      const reporting = statusOf(a.def.id) === "reporting";
-      const idx = agents.filter((x) => statusOf(x.def.id) === "reporting").indexOf(a);
-      const stand = { x: 34 + Math.max(0, idx) * 13, y: CORRIDOR_Y };
+      const st = statusOf(a.def.id);
+      const wants = WALKING[st] ? st : null;
 
       if (w.phase === "seat") {
         w.x = a.seat.x; w.y = a.seat.y;
-        if (!reporting) return;
+        if (!wants) return;
         w.timer -= dt;
         if (w.timer <= 0) {
+          w.kind = wants;
+          w.path = goRoute(a, wants);
+          w.back = w.path.slice(0, -1).reverse().concat([{ x: a.seat.x, y: a.seat.y }]);
           w.phase = "go";
-          w.path = [{ x: AISLE_X, y: a.seat.y }, { x: AISLE_X, y: CORRIDOR_Y }, stand];
         }
       } else if (w.phase === "stay") {
         w.timer -= dt;
-        if (w.timer <= 0 || !reporting) {
-          w.phase = "back";
-          w.path = [{ x: AISLE_X, y: CORRIDOR_Y }, { x: AISLE_X, y: a.seat.y }, { x: a.seat.x, y: a.seat.y }];
-        }
+        if (w.timer <= 0 || wants !== w.kind) { w.phase = "back"; w.path = w.back; }
       }
       if (w.phase === "go" || w.phase === "back") {
-        if (w.phase === "go" && !reporting) {
-          w.phase = "back";
-          w.path = [{ x: AISLE_X, y: w.y }, { x: AISLE_X, y: a.seat.y }, { x: a.seat.x, y: a.seat.y }];
-        }
         let step = WALK_SPEED * dt;
         while (step > 0 && w.path.length) {
           const p = w.path[0];
           const dx = p.x - w.x, dy = p.y - w.y, d = Math.hypot(dx, dy);
-          if (d <= step) { w.x = p.x; w.y = p.y; w.path.shift(); step -= d; }
+          if (d <= step) { w.x = p.x; w.y = p.y; w.path = w.path.slice(1); step -= d; }
           else { w.x += (dx / d) * step; w.y += (dy / d) * step; step = 0; }
         }
         w.frame += dt * 6;
         if (!w.path.length) {
-          if (w.phase === "go") { w.phase = "stay"; w.timer = 2.5; }
-          else { w.phase = "seat"; w.timer = 3; }
+          if (w.phase === "go") { w.phase = "stay"; w.timer = w.kind === "alert" ? 4 : 2.5; }
+          else { w.phase = "seat"; w.timer = w.kind === "alert" ? 4 : 3; }
         }
       }
     }
 
-    function bubbleKind(id) {
-      return statusOf(id);
-    }
-
+    // ---------- Vẽ ----------
     function render(t) {
       const c = lctx;
       c.clearRect(0, 0, W, H);
       drawFloor(c);
       drawWall(c, t);
-      drawLeaderRoom(c, t);
-      drawPantry(c, t);
+      drawTV(c, t);
+      drawLeaderRoom(c);
+      drawDecor(c);
 
       const items = [];
 
@@ -226,7 +276,7 @@
         S.bubble(c, 46, 38, aSt, t);
       } });
 
-      // 6 sub-agent
+      // Các bộ phận
       agents.forEach((a, i) => {
         const id = a.def.id, st = statusOf(id), w = a.walker;
         const seated = w.phase === "seat";
@@ -244,14 +294,15 @@
           S.desk(c, a.deskX, a.deskY, DESK_W);
           S.mug(c, a.deskX + 43, a.deskY - 2, t + i);
           S.PROPS[a.def.prop](c, a.deskX + 51, a.deskY - 5);
-          if (seated) S.bubble(c, a.seat.x + 12, a.seat.y - 8, bubbleKind(id), t + i * 0.3);
+          if (seated) S.bubble(c, a.seat.x + 12, a.seat.y - 8, st, t + i * 0.3);
         } });
         if (!seated) {
           items.push({ y: w.y + 14, draw() {
+            const x = Math.round(w.x), y = Math.round(w.y);
             const pose = w.phase === "stay" ? "stand" : (Math.floor(w.frame) % 2 ? "walkA" : "walkB");
-            S.person(c, Math.round(w.x), Math.round(w.y), a.def.look, pose, { blink: blinking(id, t) });
-            if (w.phase === "stay") S.paper(c, Math.round(w.x) + 10, Math.round(w.y) + 8);
-            S.bubble(c, Math.round(w.x) - 1, Math.round(w.y) - 12, "reporting", t);
+            S.person(c, x, y, a.def.look, pose, { blink: blinking(id, t) });
+            if (w.phase === "stay" && w.kind === "reporting") S.paper(c, x + 10, y + 8);
+            S.bubble(c, x - 1, y - 12, w.kind === "alert" ? "alert" : "reporting", t);
           } });
         }
       });
@@ -282,28 +333,45 @@
 
     function label(text, x, y, opts) {
       opts = opts || {};
-      const size = Math.max(8, Math.round((opts.size || 4.5) * scale));
+      const size = Math.max(opts.min || 8, Math.round((opts.size || 4.5) * scale));
       ctx.font = `${size}px ${opts.font || '"Press Start 2P", monospace'}`;
-      ctx.textAlign = "center";
+      ctx.textAlign = opts.align || "center";
       ctx.textBaseline = "middle";
-      const tw = ctx.measureText(text).width;
-      const pad = Math.round(size * 0.5);
-      const bx = Math.round(x * scale - tw / 2 - pad), by = Math.round(y * scale - size / 2 - pad / 1.5);
-      ctx.fillStyle = opts.bg || "rgba(28,30,40,0.85)";
-      ctx.fillRect(bx, by, Math.round(tw + pad * 2), Math.round(size + pad * 1.3));
+      if (opts.bg !== "none") {
+        const tw = ctx.measureText(text).width;
+        const pad = Math.round(size * 0.5);
+        const bx = Math.round(x * scale - tw / 2 - pad), by = Math.round(y * scale - size / 2 - pad / 1.5);
+        ctx.fillStyle = opts.bg || "rgba(28,30,40,0.85)";
+        ctx.fillRect(bx, by, Math.round(tw + pad * 2), Math.round(size + pad * 1.3));
+      }
       ctx.fillStyle = opts.color || "#f7f3e8";
       ctx.fillText(text, Math.round(x * scale), Math.round(y * scale + 1));
+    }
+
+    function drawTVText() {
+      const acc = tvAccount();
+      const vt = { bg: "none", font: '"VT323", monospace', align: "left", size: 5, min: 6 };
+      if (!acc) {
+        label("CHƯA CÓ SỐ LIỆU", TV.x + 5, TV.y + 9, Object.assign({}, vt, { color: "#7fa6d6" }));
+        label("/bao-cao-ngay", TV.x + 5, TV.y + 17, Object.assign({}, vt, { color: "#4f6f99" }));
+        return;
+      }
+      const d = acc.days[acc.days.length - 1];
+      label("Chi " + shortMoney(d.spend), TV.x + 4, TV.y + 7, Object.assign({}, vt, { color: "#ffd88a" }));
+      label("TN " + (d.messages || 0) + " · " + shortMoney(d.costPerMessage), TV.x + 4, TV.y + 13.5, Object.assign({}, vt, { color: "#9fd2ff" }));
+      label("Lead " + (d.leads || 0) + " · " + shortMoney(d.costPerLead), TV.x + 4, TV.y + 20, Object.assign({}, vt, { color: "#9ff0b4" }));
     }
 
     function drawLabels() {
       label("LEADER · BẠN", 160, 34.5, { bg: "#f2c230", color: "#2a2210", font: '"VT323", monospace', size: 6 });
       label("CLAUDE CODE", 51, 86, { bg: "#d97757", color: "#fff" });
-      label("PANTRY", 284, 86, { bg: "rgba(28,30,40,0.55)" });
       agents.forEach((a) => {
-        label(`${a.def.no} ${a.def.short}`, a.deskX + DESK_W / 2, a.deskY + 21);
+        if (a.def.daily) label(`${a.def.no} ${a.def.short}`, a.deskX + DESK_W / 2 - 4, 86, { bg: "#6b4f8a" });
+        else label(`${a.def.no} ${a.def.short}`, a.deskX + DESK_W / 2, a.deskY + 21);
       });
       const n = (state.awaitingLeader || []).length;
       if (n) label(`${n} việc chờ duyệt`, 160, 84.5, { bg: "#c0392b", font: '"VT323", monospace', size: 6 });
+      drawTVText();
     }
 
     function countDone() {
@@ -358,10 +426,12 @@
 
     return {
       setState(s) { state = s || { agents: {} }; },
+      setDaily(d) { daily = d || { accounts: {} }; },
       select(id) { selected = id; },
       resize,
     };
   }
 
   window.createOffice = createOffice;
+  window.shortMoney = shortMoney;
 })();

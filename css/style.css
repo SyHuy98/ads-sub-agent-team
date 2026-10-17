@@ -13,6 +13,7 @@
   --waiting: #e2b53a;
   --done: #4fb06d;
   --idle: #8d93a3;
+  --alert: #e0533d;
   --danger: #c0392b;
   --pixel: "Press Start 2P", monospace;
   --body: "VT323", ui-monospace, monospace;
@@ -125,6 +126,7 @@ h1 { font-family: var(--pixel); font-size: 16px; margin: 0; letter-spacing: 1px;
 .s-waiting { background: var(--waiting); }
 .s-done { background: var(--done); }
 .s-idle { background: var(--idle); }
+.s-alert { background: var(--alert); }
 .hint { color: var(--muted); margin: 6px 0 0; }
 
 /* ----- panel ----- */
@@ -151,7 +153,7 @@ h1 { font-family: var(--pixel); font-size: 16px; margin: 0; letter-spacing: 1px;
   padding: 1px 8px; font-size: 18px; color: #15161f;
   box-shadow: 0 0 0 2px var(--line);
 }
-.pill.s-working, .pill.s-reporting { color: #fff; }
+.pill.s-working, .pill.s-reporting, .pill.s-alert { color: #fff; }
 
 .card { background: var(--bg-2); padding: 10px 12px; margin: 8px 0; box-shadow: 0 0 0 2px var(--line); }
 .card-title { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
@@ -175,6 +177,33 @@ h1 { font-family: var(--pixel); font-size: 16px; margin: 0; letter-spacing: 1px;
 
 a { color: #8fc7ff; }
 a:hover { color: var(--accent); }
+
+.btn-mini { font-size: 16px; padding: 0 6px; margin-left: 8px; background: var(--claude); color: #fff; vertical-align: middle; }
+.recs li:not(.checked) .dalam { display: none; }
+
+/* ----- báo cáo ngày ----- */
+.daily-card { cursor: pointer; }
+.daily-card:hover { outline: 2px solid var(--accent); }
+.kpi-mini { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 6px 0; }
+.kpi-mini b { color: var(--accent); font-weight: normal; }
+.kpi-table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 19px; }
+.kpi-table th { text-align: left; color: var(--muted); font-weight: normal; border-bottom: 2px solid var(--line); padding: 2px 6px; }
+.kpi-table td { padding: 3px 6px; border-bottom: 2px dashed rgba(255,255,255,0.06); }
+.kpi-table b { font-weight: normal; }
+.kpi-table tr.j-good td:nth-child(2) { color: #7fe39a; }
+.kpi-table tr.j-warn td:nth-child(2) { color: var(--waiting); }
+.kpi-table tr.j-bad td:nth-child(2) { color: #ff8a7a; }
+.kpi-table tr.j-bad td:first-child::before { content: "▲ "; color: #ff8a7a; }
+.chart { width: 100%; height: auto; display: block; background: var(--bg); box-shadow: 0 0 0 2px var(--line); }
+.chart-legend { display: flex; gap: 14px; color: var(--muted); margin-top: 6px; }
+.chart-legend span { display: flex; align-items: center; gap: 6px; }
+.alert-red { box-shadow: 0 0 0 2px var(--alert); }
+.alert-yellow { box-shadow: 0 0 0 2px var(--waiting); }
+.kpi-list { list-style: none; padding: 0; margin: 0; }
+.kpi-list li { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; }
+.kpi-list b { font-weight: normal; color: var(--accent); }
+.acc-pick { display: flex; gap: 8px; align-items: center; color: var(--muted); margin: 8px 0; }
+.acc-pick select { font-family: var(--body); font-size: 18px; background: var(--bg); color: var(--text); border: 0; box-shadow: 0 0 0 2px var(--line); padding: 2px 6px; }
 
 /* ----- form brief ----- */
 .form { display: grid; gap: 10px; }

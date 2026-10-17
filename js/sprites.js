@@ -167,6 +167,10 @@
       drawMap(ctx, x, y, ["......G", "....G.G", "..G.G.G", "G.G.G.G", "KKKKKKK"],
         { G: "#4fb06d", K: "#3a3d48" });
     },
+    tv(ctx, x, y) {
+      drawMap(ctx, x, y, ["KKKKKKK", "KBBBBGK", "KBBGBGK", "KGBGBGK", "KKKKKKK", "..KKK.."],
+        { K: "#2f3340", B: "#16243b", G: "#5fd37f" });
+    },
     shield(ctx, x, y) {
       drawMap(ctx, x, y, ["BBBBBB", "BWWWWB", "BWWGWB", "BGWGWB", ".BWWB.", "..BB.."],
         { B: "#3f6fb6", W: "#f4f1e8", G: "#4fb06d" });
@@ -182,7 +186,7 @@
 
   // Bong bóng trạng thái 11x9 vẽ ở lớp pixel.
   function bubble(ctx, x, y, kind, t) {
-    const bg = { working: "#ffffff", waiting: "#ffe58a", done: "#c9f0c4", reporting: "#d6e6ff", idle: "#eeeeee" }[kind] || "#fff";
+    const bg = { working: "#ffffff", waiting: "#ffe58a", done: "#c9f0c4", reporting: "#d6e6ff", idle: "#eeeeee", alert: "#ff6a5a" }[kind] || "#fff";
     px(ctx, x, y + 1, 11, 6, bg);
     px(ctx, x + 1, y, 9, 8, bg);
     px(ctx, x + 3, y + 8, 2, 1, bg);
@@ -191,6 +195,10 @@
     if (kind === "working") {
       const n = Math.floor(t * 3) % 4;
       for (let i = 0; i < 3; i++) if (i < n) px(ctx, x + 2 + i * 3, y + 4, 2, 1, k);
+    } else if (kind === "alert") {
+      const on = Math.floor(t * 4) % 2;
+      px(ctx, x + 5, y + 1, 1, 4, on ? "#ffffff" : "#5a0d0d");
+      px(ctx, x + 5, y + 6, 1, 1, on ? "#ffffff" : "#5a0d0d");
     } else if (kind === "waiting") {
       px(ctx, x + 5, y + 1, 1, 4, "#c0392b");
       px(ctx, x + 5, y + 6, 1, 1, "#c0392b");
