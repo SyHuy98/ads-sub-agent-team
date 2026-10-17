@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ads Team HQ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <h1>ADS TEAM HQ</h1>
+        <p class="brand-sub">Văn phòng Meta Ads · Leader ra brief · Claude Code báo cáo</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button class="btn btn-primary" id="btn-brief">✎ Viết brief</button>
+      <button class="btn" id="btn-overview">☰ Tổng quan</button>
+      <button class="btn" id="btn-reload" title="Đọc lại data/state.js">↻ Tải lại</button>
+      <label class="toggle"><input type="checkbox" id="auto-reload"> Tự cập nhật</label>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="office-wrap">
+      <div class="canvas-box"><canvas id="office" aria-label="Văn phòng pixel của team Ads"></canvas></div>
+      <div id="tooltip" class="tooltip" hidden></div>
+      <ul class="legend" aria-label="Chú thích trạng thái">
+        <li><i class="dot s-working"></i>Đang làm</li>
+        <li><i class="dot s-reporting"></i>Nộp báo cáo</li>
+        <li><i class="dot s-waiting"></i>Chờ Leader duyệt</li>
+        <li><i class="dot s-done"></i>Đã xong</li>
+        <li><i class="dot s-idle"></i>Rảnh</li>
+      </ul>
+      <p class="hint">Bấm vào bàn của từng người để xem việc đang làm & đề xuất. Bấm phòng Leader để viết brief.</p>
+    </section>
+
+    <aside class="panel" id="panel" aria-live="polite"></aside>
+  </main>
+
+  <footer class="statusbar" id="statusbar"></footer>
+
+  <script src="js/team.js"></script>
+  <script src="js/sprites.js"></script>
+  <script src="js/office.js"></script>
+  <script src="data/state.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
