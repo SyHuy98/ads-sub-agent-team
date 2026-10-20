@@ -24,12 +24,22 @@ Một team Meta Ads chạy trên Claude Code, kèm trang web văn phòng pixel �
 - Mở thẳng file `index.html` bằng trình duyệt, **hoặc**
 - `python3 -m http.server 8000` trong thư mục repo → vào http://localhost:8000
 
-Bấm vào bàn từng người để xem nhiệm vụ, kết quả và **đề xuất cho Leader** (tích vào ô khi bạn đã tự làm xong). Bấm vào phòng Leader (hoặc nút **Viết brief**) để viết brief. Bật **Tự cập nhật** để web đọc lại trạng thái mỗi 10 giây.
+Bấm vào bàn từng người để xem nhiệm vụ, kết quả và **đề xuất cho Leader** (tích vào ô khi bạn đã tự làm xong). Bấm vào phòng Leader (hoặc nút **❓ Hỏi team**) để hỏi team hoặc viết brief. Bật **Tự cập nhật** để web đọc lại trạng thái mỗi 10 giây.
 
 Báo cáo ngày trên TV là số liệu thật. Các bộ phận 02–07 ở trạng thái "Rảnh" cho tới khi bạn giao brief đầu tiên.
 
-## Giao việc cho team
-1. Viết brief trên web → **Copy lệnh cho Claude Code**.
+## Hỏi team (cách giao việc nhanh nhất)
+Không cần viết brief dài, chỉ cần hỏi:
+1. Bấm **❓ Hỏi team** (hoặc phòng Leader) → tab **Hỏi team** → gõ câu hỏi. Ví dụ:
+   - "Vì sao CPM tăng 1 tuần nay?"
+   - "Nên dồn ngân sách vào campaign nào?"
+   - "Đối thủ đang chạy ưu đãi gì cho triệt lông?"
+2. Bấm **Copy lệnh /hoi** rồi dán vào Claude Code. Hoặc gõ thẳng `/hoi <câu hỏi>`.
+3. Claude Code tự chọn 1–4 bộ phận phù hợp. Muốn tự chọn thì tick ở form, hoặc thêm `[giao: performance-analyst,media-buyer]`. Các bộ phận research và phân tích bằng dữ liệu thật, rồi trả lời gồm: trả lời ngắn, bằng chứng, việc bạn có thể làm.
+4. Câu trả lời lưu ở `reports/hoi-dap/` và hiện ở mục **Câu trả lời gần đây** trên Bàn Leader.
+
+## Brief chiến dịch (khi lên campaign mới)
+1. Bàn Leader → tab **Brief chiến dịch** → điền form → **Copy lệnh cho Claude Code**.
 2. Mở Claude Code trong thư mục repo này, dán lệnh vào (bắt đầu bằng `/brief`).
 3. Claude Code lưu brief vào `briefs/`, giao việc song song cho các bộ phận, cập nhật `data/state.js` (web đổi trạng thái theo), rồi viết báo cáo vào `reports/` và báo cáo lại cho bạn:
    - Tóm tắt điều hành
@@ -68,8 +78,8 @@ Các bộ phận dùng connector Meta Ads (MCP) bạn đã kết nối trong Cla
 | `data/daily.js` | Số liệu báo cáo ngày (14 ngày) |
 | `data/changelog.js` | Nhật ký thay đổi & kết quả đo lại |
 | `briefs/` | Brief của Leader |
-| `reports/` | Báo cáo tổng hợp, `reports/daily/` báo cáo ngày, `reports/bai-hoc.md` thư viện bài học |
+| `reports/` | Báo cáo brief, `reports/hoi-dap/` câu trả lời, `reports/daily/` báo cáo ngày, `reports/bai-hoc.md` thư viện bài học |
 | `CLAUDE.md` | Quy tắc vận hành cho Claude Code |
 | `.claude/agents/` | 7 sub-agent |
-| `.claude/commands/` | Lệnh `/brief`, `/bao-cao`, `/bao-cao-ngay`, `/kpi`, `/da-lam` |
+| `.claude/commands/` | Lệnh `/hoi`, `/brief`, `/bao-cao`, `/bao-cao-ngay`, `/kpi`, `/da-lam` |
 | `.claude/hooks/meta-ads-readonly.js` | Chặn thao tác ghi lên tài khoản quảng cáo |

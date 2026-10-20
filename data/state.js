@@ -90,5 +90,6 @@ window.OFFICE_STATE = {
       "file": "reports/daily/2026-10-16.md",
       "summary": "Hiệu quả tốt hơn TB tuần nhưng chi tiêu giảm 38%, CPM tăng. 3 cảnh báo vàng."
     }
-  ]
+  ],
+  "questions": []
 };

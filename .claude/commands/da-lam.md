@@ -1,6 +1,6 @@
 ---
-description: Ghi lại thay đổi Leader vừa tự làm trên Ads để team đo lại hiệu quả sau vài ngày
-argument-hint: <VD: Tăng ngân sách campaign Tin nhắn T11 từ 500k lên 700k/ngày>
+description: "Ghi lại thay đổi Leader vừa tự làm trên Ads để team đo lại hiệu quả sau vài ngày"
+argument-hint: "<VD: Tăng ngân sách campaign Tin nhắn T11 từ 500k lên 700k/ngày>"
 ---
 
 Leader vừa tự thực hiện: $ARGUMENTS

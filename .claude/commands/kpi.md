@@ -1,6 +1,6 @@
 ---
-description: Leader đặt/sửa ngưỡng KPI & cảnh báo cho báo cáo ngày
-argument-hint: <VD: tin nhắn<60k, lead<150k, ngân sách 5tr/ngày, tần suất<3, CTR>1.5%>
+description: "Leader đặt/sửa ngưỡng KPI & cảnh báo cho báo cáo ngày"
+argument-hint: "<VD: tin nhắn<60k, lead<150k, ngân sách 5tr/ngày, tần suất<3, CTR>1.5%>"
 ---
 
 Leader đặt ngưỡng KPI: $ARGUMENTS

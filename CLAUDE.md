@@ -25,10 +25,28 @@ Luôn trả lời Leader bằng **tiếng Việt**, ngắn gọn, ưu tiên vi�
 5. **Tổng hợp báo cáo** vào `reports/YYYY-MM-DD-<slug>.md` theo mẫu bên dưới, thêm vào đầu mảng `reports` trong state.
 6. **Báo cáo Leader**: cập nhật `assistant` (`status: "done"`, `message`, `reportFile`), `awaitingLeader`, `updatedAt` (ISO, giờ Việt Nam +07:00). Trả lời Leader bằng bản tóm tắt điều hành + danh sách việc cần tự làm + câu hỏi cần chốt.
 
+## Quy trình hỏi đáp (`/hoi`)
+Leader chỉ cần gõ một câu hỏi; team tự research, phân tích rồi trả lời. Chi tiết từng bước ở `.claude/commands/hoi.md`, tóm tắt:
+1. Đọc ngữ cảnh: `reports/bai-hoc.md`, `data/daily.js`, `data/config.js`.
+2. Chọn bộ phận (Leader ghi `[giao: ...]` thì theo đúng; không thì tự chọn 1–4 bộ phận và ghi lý do):
+
+   | Loại câu hỏi | Bộ phận |
+   |---|---|
+   | Số liệu, chi phí, vì sao tăng/giảm, phân bổ ngân sách | `performance-analyst` + `media-buyer` |
+   | Thị trường, đối thủ, khách hàng, thông điệp | `strategy-research` + `creative-specialist` |
+   | Creative, content, hook, copy | `creative-specialist` + `compliance-qa` |
+   | Pixel, tin nhắn, lead, chất lượng lead | `tracking-crm` + `performance-analyst` |
+   | Chính sách, quảng cáo bị từ chối | `compliance-qa` |
+3. `activeBrief.type = "question"`, bộ phận được chọn → `working`.
+4. Gọi song song các sub-agent, tổng hợp vào `reports/hoi-dap/YYYY-MM-DD-<slug>.md` (Trả lời ngắn · Bằng chứng · Phân tích từng bộ phận · Việc Leader có thể làm · Còn chưa chắc).
+5. Thêm vào đầu `questions` trong state, cập nhật `reports`, `assistant`, `updatedAt`, rồi trả lời Leader: trả lời ngắn + bằng chứng chính + việc nên làm.
+
 ## Cập nhật `data/state.js`
 - Giữ dòng đầu `window.OFFICE_STATE = ` và phần sau là **JSON hợp lệ** kết thúc bằng `;`.
 - `status`: `idle | working | reporting | waiting | done`.
 - `status` thêm `alert` (chỉ dùng cho `performance-analyst` khi báo cáo ngày có cảnh báo đỏ — nhân vật chạy vào phòng Leader).
+- `activeBrief`: `null` hoặc `{ id, title, file, type }` với `type` = `"brief"` (mặc định) hoặc `"question"`.
+- `questions`: mảng hỏi đáp, mới nhất ở đầu, tối đa 20 mục: `{ id, date, question, shortAnswer, agents: [id...], file }`.
 - Id agent: `strategy-research`, `creative-specialist`, `media-buyer`, `tracking-crm`, `performance-analyst`, `compliance-qa`, `daily-reporter`.
 - Web (`index.html`) tự đọc lại file này mỗi 10 giây, nên cập nhật sau mỗi bước để Leader thấy team đang làm gì.
 - Kiểm tra sau khi sửa: `for f in state daily changelog config; do node -e "global.window={};require('./data/$f.js')" || echo LỖI $f; done` không được in `LỖI`.
@@ -41,6 +59,7 @@ Luôn trả lời Leader bằng **tiếng Việt**, ngắn gọn, ưu tiên vi�
 | `data/changelog.js` | `/da-lam`, `/bao-cao-ngay` | Thay đổi Leader đã làm + baseline + kết quả đo lại |
 | `reports/daily/YYYY-MM-DD.md` | `/bao-cao-ngay` | Báo cáo ngày |
 | `reports/bai-hoc.md` | `/bao-cao-ngay` | Thư viện bài học từ các thay đổi đã đo |
+| `reports/hoi-dap/YYYY-MM-DD-<slug>.md` | `/hoi` | Câu trả lời của team cho câu hỏi của Leader |
 
 Đọc số liệu: tin nhắn = action `onsite_conversion.messaging_conversation_started_7d`, lead = action `lead`. Tài khoản chính hiện tại: `act_826563696751473` (NTSpa's Women, BM NT Spa Women) qua connector `ADS_ANALYZS_FOR_NT_BEAUTY_SPA`.
 
@@ -68,7 +87,8 @@ Luôn trả lời Leader bằng **tiếng Việt**, ngắn gọn, ưu tiên vi�
 ```
 
 ## Lệnh có sẵn
-- `/brief <đường dẫn file | nội dung brief>` — chạy toàn bộ quy trình trên.
+- `/hoi <câu hỏi> [giao: id,id]` — hỏi team một câu, team research & trả lời (cách giao việc mặc định).
+- `/brief <đường dẫn file | nội dung brief>` — brief chiến dịch đầy đủ (quy trình xử lý brief ở trên).
 - `/bao-cao` — báo cáo nhanh tình hình team và việc đang chờ Leader.
 - `/bao-cao-ngay [YYYY-MM-DD]` — báo cáo Ads ngày (agent 08) + đo lại thay đổi tới hạn. Chạy tự động mỗi sáng ~7h52 bằng lịch hẹn giờ trên Claude Code cloud; khi chạy tự động thì commit `data/` + `reports/` và push.
 - `/kpi <ngưỡng>` — Leader đặt ngưỡng KPI/cảnh báo.
