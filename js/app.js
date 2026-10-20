@@ -60,7 +60,7 @@
       if (!id || !e) { tooltip.hidden = true; return; }
       const box = document.querySelector(".office-wrap").getBoundingClientRect();
       let title, line;
-      if (id === "leader") { title = "LEADER · BẠN"; line = `${(state.awaitingLeader || []).length} việc chờ bạn duyệt · bấm để viết brief`; }
+      if (id === "leader") { title = "LEADER · BẠN"; line = `${(state.awaitingLeader || []).length} việc chờ bạn duyệt · bấm để hỏi team / viết brief`; }
       else if (id === "assistant") { title = "CLAUDE CODE"; line = (state.assistant && state.assistant.message) || "Trợ lý điều phối & báo cáo"; }
       else if (id === "daily-reporter") {
         const acc = firstAccount(), d = acc && acc.data.days[acc.data.days.length - 1];
@@ -135,14 +135,15 @@
     return `
       <h2>TỔNG QUAN</h2>
       <h3>Báo cáo ngày</h3>${dailyCardHtml()}
-      <h3>Brief đang chạy</h3>
-      <p><b>${esc((state.activeBrief && state.activeBrief.title) || "Chưa có brief")}</b></p>
+      <h3>${isQuestion() ? "Câu hỏi đang xử lý" : "Brief đang chạy"}</h3>
+      <p><b>${esc((state.activeBrief && state.activeBrief.title) || "Chưa có câu hỏi / brief nào")}</b></p>
       <div class="progress" title="${done}/${n} bộ phận đã xong"><i style="width:${Math.round(done / n * 100)}%"></i></div>
       <p class="muted">${done}/${n} bộ phận đã xong</p>
       <h3>Chờ bạn duyệt</h3>${awaitingHtml()}
+      <h3>Hỏi đáp gần đây</h3>${questionsHtml(2)}
       <h3>Đội hình</h3>
       <ul class="team-list">
-        <li data-open="leader"><span class="no">01</span><span>Bạn — Leader</span><span class="muted">brief</span></li>
+        <li data-open="leader"><span class="no">01</span><span>Bạn — Leader</span><span class="muted">hỏi / brief</span></li>
         <li data-open="assistant"><span class="no">CC</span><span>Claude Code — Trợ lý báo cáo</span>${statusPill((state.assistant && state.assistant.status) || "idle")}</li>
         ${TEAM.agents.map((a) => `<li data-open="${a.id}"><span class="no">${a.no}</span><span>${esc(a.name)}</span>${statusPill(agentState(a.id).status || "idle")}</li>`).join("")}
       </ul>
@@ -327,8 +328,8 @@
       <h3>Lời nhắn cho Leader</h3><p>${esc(a.message || "Sẵn sàng nhận brief.")}</p>
       ${a.reportFile ? `<p><a href="${esc(a.reportFile)}" target="_blank" rel="noopener">Mở báo cáo tổng hợp →</a></p>` : ""}
       <h3>Cách giao việc</h3>
-      <div class="card">1. Viết brief ở phòng Leader → <b>Copy lệnh</b>.<br>2. Dán vào Claude Code (mở trong thư mục repo này).<br>3. Claude Code giao việc cho các bộ phận, cập nhật văn phòng và viết báo cáo vào <code>reports/</code>.</div>
-      <div class="card">Lệnh nhanh: <code>/brief</code> giao brief · <code>/bao-cao</code> tình hình team · <code>/bao-cao-ngay</code> báo cáo Ads ngày · <code>/kpi</code> đặt ngưỡng · <code>/da-lam</code> ghi thay đổi đã làm.</div>
+      <div class="card">1. Phòng Leader → <b>Hỏi team</b>: gõ câu hỏi → <b>Copy lệnh /hoi</b>.<br>2. Dán vào Claude Code (mở trong thư mục repo này).<br>3. Claude Code chọn bộ phận phù hợp, team research & phân tích, rồi trả lời vào <code>reports/hoi-dap/</code>.</div>
+      <div class="card">Lệnh nhanh: <code>/hoi</code> hỏi team · <code>/brief</code> brief chiến dịch · <code>/bao-cao</code> tình hình team · <code>/bao-cao-ngay</code> báo cáo Ads ngày · <code>/kpi</code> đặt ngưỡng · <code>/da-lam</code> ghi thay đổi đã làm.</div>
       <h3>Báo cáo</h3>${reportsHtml()}`;
   }
 
@@ -362,12 +363,84 @@
   }
 
   function viewBrief() {
+    const tab = leaderTab();
+    return `
+      <div class="who"><span data-avatar></span><div><div class="who-no">01</div><h2>BÀN LEADER</h2><div class="muted">Bạn hỏi — team research & góp ý — bạn tự set Ads</div></div></div>
+      <h3>Chờ bạn duyệt</h3>${awaitingHtml()}
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab ${tab === "hoi" ? "active" : ""}" role="tab" aria-selected="${tab === "hoi"}" data-tab="hoi">❓ Hỏi team</button>
+        <button type="button" class="tab ${tab === "brief" ? "active" : ""}" role="tab" aria-selected="${tab === "brief"}" data-tab="brief">✎ Brief chiến dịch</button>
+      </div>
+      ${tab === "hoi" ? questionTabHtml() : briefTabHtml()}
+      <h3>KPI & ngưỡng cảnh báo</h3>${kpiFormHtml()}
+      <h3>Nhật ký thay đổi</h3>${changelogHtml()}`;
+  }
+
+  // ---------- Hỏi team ----------
+  const SAMPLE_QUESTIONS = [
+    "Vì sao CPM tăng 1 tuần nay?",
+    "Nên dồn ngân sách vào campaign nào?",
+    "Campaign nào nên tắt?",
+    "Đối thủ đang chạy ưu đãi gì?",
+  ];
+  const leaderTab = () => store.get("leader-tab", "hoi") === "brief" ? "brief" : "hoi";
+  const isQuestion = () => !!(state.activeBrief && state.activeBrief.type === "question");
+
+  function questionsHtml(limit) {
+    const list = (state.questions || []).slice(0, limit || 20);
+    if (!list.length) return `<p class="muted">Chưa có câu hỏi nào. Hỏi team ở Bàn Leader.</p>`;
+    return list.map((q) => `<div class="card qa-card">
+        <div class="card-title"><b>❓ ${esc(q.question)}</b><span class="muted">${esc(q.date)}</span></div>
+        <p>${esc(q.shortAnswer || "Đang xử lý…")}</p>
+        <div class="agent-chips">${(q.agents || []).map((id) => `<span class="chip-sm">${esc((agentDef(id) || {}).no || "")} ${esc((agentDef(id) || {}).short || id)}</span>`).join("")}
+        ${q.file ? `<a href="${esc(q.file)}" target="_blank" rel="noopener">Xem trả lời đầy đủ →</a>` : ""}</div>
+      </div>`).join("");
+  }
+
+  function questionCommand(d) {
+    const q = (d.q || "").trim().replace(/\s+/g, " ");
+    const pick = d.assign || [];
+    return `/hoi ${q}${pick.length ? ` [giao: ${pick.join(",")}]` : ""}`;
+  }
+
+  function questionTabHtml() {
+    const d = store.get("question-draft", { q: "", assign: [] });
+    return `
+      <form class="form" id="q-form" autocomplete="off">
+        <label>Câu hỏi cho team<textarea name="q" class="q-input" placeholder="VD: Vì sao chi phí/tin nhắn tuần này tăng? Nên làm gì?">${esc(d.q)}</textarea></label>
+        <div class="chips" aria-label="Câu hỏi mẫu">${SAMPLE_QUESTIONS.map((x) => `<button type="button" class="chip" data-sample="${esc(x)}">${esc(x)}</button>`).join("")}</div>
+        <details ${d.assign && d.assign.length ? "open" : ""}><summary>Chọn bộ phận (để trống = Claude Code tự chọn)</summary>
+          <div class="checks">${BRIEF_AGENTS.map((a) => `<label><input type="checkbox" name="assign" value="${a.id}" ${(d.assign || []).includes(a.id) ? "checked" : ""}>${a.no} ${esc(a.name)}</label>`).join("")}</div>
+        </details>
+        <div class="form-actions"><button type="button" class="btn btn-claude" data-act="ask">⧉ Copy lệnh /hoi</button></div>
+      </form>
+      <pre class="preview" id="q-preview"></pre>
+      <h3>Câu trả lời gần đây</h3>${questionsHtml(10)}`;
+  }
+
+  function wireQuestionForm() {
+    const form = document.getElementById("q-form");
+    const preview = document.getElementById("q-preview");
+    const read = () => { const fd = new FormData(form); return { q: String(fd.get("q") || ""), assign: fd.getAll("assign") }; };
+    const update = () => { const d = read(); store.set("question-draft", d); preview.textContent = d.q.trim() ? questionCommand(d) : "Lệnh /hoi sẽ hiện ở đây."; };
+    form.addEventListener("input", update);
+    form.addEventListener("change", update);
+    update();
+    form.addEventListener("click", async (e) => {
+      const sample = e.target.closest("[data-sample]");
+      if (sample) { form.elements.q.value = sample.dataset.sample; update(); form.elements.q.focus(); return; }
+      if (!e.target.closest("[data-act=ask]")) return;
+      const d = read();
+      if (!d.q.trim()) { toast("Gõ câu hỏi trước đã"); form.elements.q.focus(); return; }
+      await copyText(questionCommand(d));
+      toast("Đã copy lệnh /hoi — dán vào Claude Code");
+    });
+  }
+
+  function briefTabHtml() {
     const draft = loadDraft();
     const assign = draft.assign || [];
     return `
-      <div class="who"><span data-avatar></span><div><div class="who-no">01</div><h2>BÀN LEADER</h2><div class="muted">Bạn ra brief — team góp ý — bạn tự set Ads</div></div></div>
-      <h3>Chờ bạn duyệt</h3>${awaitingHtml()}
-      <h3>Brief mới</h3>
       <form class="form" id="brief-form" autocomplete="off">
         ${BRIEF_FIELDS.map((f) => f.row ? `<div class="row-2">${f.row.map((x) => fieldHtml(x, draft)).join("")}</div>` : fieldHtml(f, draft)).join("")}
         <div><span class="muted">Giao cho</span>
@@ -379,9 +452,7 @@
           <button type="button" class="btn btn-ghost" data-act="clear">Xoá nháp</button>
         </div>
       </form>
-      <pre class="preview" id="brief-preview"></pre>
-      <h3>KPI & ngưỡng cảnh báo</h3>${kpiFormHtml()}
-      <h3>Nhật ký thay đổi</h3>${changelogHtml()}`;
+      <pre class="preview" id="brief-preview"></pre>`;
   }
 
   function readForm(form) {
@@ -482,7 +553,10 @@
         : view.kind === "daily" ? agentDef("daily-reporter") : TEAM.leader;
       slot.replaceWith(avatarCanvas(def));
     }
-    if (view.kind === "brief") { wireBriefForm(); wireLeaderForms(); }
+    if (view.kind === "brief") {
+      if (leaderTab() === "hoi") wireQuestionForm(); else wireBriefForm();
+      wireLeaderForms();
+    }
     const pick = document.getElementById("acc-pick");
     if (pick) pick.addEventListener("change", () => { view.account = pick.value; renderPanel(); });
   }
@@ -502,6 +576,8 @@
       toast("Đã copy lệnh /da-lam — dán vào Claude Code để team đo lại");
       return;
     }
+    const tab = e.target.closest("[data-tab]");
+    if (tab) { store.set("leader-tab", tab.dataset.tab); renderPanel(); return; }
     const li = e.target.closest("[data-open]");
     if (li) open(li.dataset.open);
   });
@@ -515,7 +591,7 @@
     statusbar.innerHTML = `
       ${state.demo ? `<span class="demo-badge">BRIEF MẪU</span>` : ""}
       ${last ? `<span>Hôm qua: <b>chi ${short(last.spend)} · ${num(last.messages)} TN · ${num(last.leads)} lead</b></span><span>Cảnh báo: <b>${nAlerts}</b></span>` : ""}
-      <span>Brief: <b>${esc((state.activeBrief && state.activeBrief.title) || "—")}</b></span>
+      <span>${isQuestion() ? "Câu hỏi" : "Brief"}: <b>${esc((state.activeBrief && state.activeBrief.title) || "—")}</b></span>
       <span>Xong: <b>${done}/${BRIEF_AGENTS.length}</b> · Đang làm: <b>${working}</b></span>
       <span>Chờ duyệt: <b>${(state.awaitingLeader || []).length}</b></span>
       <span>Cập nhật: <b>${esc(fmtTime(state.updatedAt))}</b></span>`;
@@ -562,7 +638,7 @@
   setAuto(auto.checked);
 
   document.getElementById("btn-reload").addEventListener("click", () => reloadState(true));
-  document.getElementById("btn-brief").addEventListener("click", () => open("leader"));
+  document.getElementById("btn-brief").addEventListener("click", () => { store.set("leader-tab", "hoi"); open("leader"); });
   document.getElementById("btn-overview").addEventListener("click", () => { view = { kind: "overview" }; office.select(null); renderPanel(); });
 
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => office.resize());
