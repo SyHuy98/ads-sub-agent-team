@@ -228,6 +228,23 @@ details[open] summary { margin-bottom: 6px; }
 .agent-chips { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 6px; }
 .chip-sm { font-size: 16px; padding: 0 6px; background: var(--panel-2); box-shadow: 0 0 0 2px var(--line); }
 
+/* ----- trực tiếp (server cầu nối) ----- */
+.livelog { margin-top: 18px; background: var(--panel); padding: 8px 12px; box-shadow: 0 0 0 4px var(--line); }
+.live-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 4px; }
+.live-head b { color: var(--accent); font-weight: normal; }
+.live-list { list-style: none; padding: 0; margin: 0; font-size: 19px; }
+.live-list li { padding: 2px 0; border-bottom: 2px dashed rgba(255,255,255,0.05); }
+.live-list .lv-start { color: var(--claude); }
+.live-list .lv-assign { color: #9fd2ff; }
+.live-list .lv-ok { color: #7fe39a; }
+.live-list .lv-err { color: #ff8a7a; }
+.live-list .lv-muted { color: var(--muted); }
+.btn-mini-stop, .btn-mini-run { font-size: 17px; padding: 1px 8px; }
+.btn-mini-stop { background: var(--danger); color: #fff; }
+.btn-mini-run { background: var(--claude); color: #fff; margin-left: 8px; }
+.conn { color: var(--idle); }
+.conn.on { color: #7fe39a; }
+
 /* ----- form brief ----- */
 .form { display: grid; gap: 10px; }
 .form label { display: grid; gap: 4px; color: var(--muted); }

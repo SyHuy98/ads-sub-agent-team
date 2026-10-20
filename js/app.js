@@ -113,7 +113,7 @@
       const done = store.get(recKey(agentId, r.id), false);
       return `<li class="${done ? "checked" : ""}"><input type="checkbox" data-agent="${esc(agentId)}" data-rec="${esc(r.id)}" ${done ? "checked" : ""} aria-label="Đánh dấu đã tự thực hiện">
         <span>${esc(r.text)}${r.priority ? `<em class="prio ${prioClass(r.priority)}">${esc(r.priority)}</em>` : ""}
-        <button type="button" class="btn btn-mini dalam" data-dalam="${esc(r.text)}" title="Copy lệnh ghi nhật ký để team đo lại">⧉ Ghi nhật ký</button></span></li>`;
+        <button type="button" class="btn btn-mini dalam" data-dalam="${esc(r.text)}" title="Ghi vào nhật ký để team đo lại sau 3–7 ngày">${bridge.ok ? "▶" : "⧉"} Ghi nhật ký</button></span></li>`;
     }).join("")}</ul>`;
   }
 
@@ -207,13 +207,15 @@
       <div class="chart-legend"><span><i class="dot s-working"></i>Tin nhắn</span><span><i class="dot s-done"></i>Lead</span><span><i class="dot" style="background:var(--accent)"></i>Chi tiêu</span></div>`;
   }
 
+  const runDailyBtn = () => bridge.ok ? ` <button type="button" class="btn btn-mini-run" data-run-daily>▶ Chạy báo cáo ngày</button>` : "";
+
   function viewDaily() {
     const ids = accountIds();
     const acc = firstAccount(view.account);
     const s = agentState("daily-reporter");
     const head = `<div class="who"><span data-avatar></span><div><div class="who-no">08</div><h2>BÁO CÁO NGÀY</h2><div class="muted">Daily Reporter · tự chạy mỗi sáng ~7h52</div></div></div>`;
     if (!acc) {
-      return `${head}${statusPill(s.status || "idle")}
+      return `${head}${statusPill(s.status || "idle")}${runDailyBtn()}
         <div class="card">Chưa có số liệu. Sáng mai lịch hẹn giờ sẽ tự chạy, hoặc gõ <code>/bao-cao-ngay</code> trong Claude Code.</div>
         <h3>KPI đang áp dụng</h3>${kpiSummaryHtml()}`;
     }
@@ -230,7 +232,7 @@
       ["Tần suất", num(d.frequency, 2), num(avg.frequency, 2), k.maxFrequency != null ? "≤ " + num(k.maxFrequency, 1) : "—", judge(d.frequency, avg.frequency, k.maxFrequency, -1)],
     ];
     const alerts = data.alerts || [];
-    return `${head}${statusPill(s.status || "idle")}
+    return `${head}${statusPill(s.status || "idle")}${runDailyBtn()}
       ${ids.length > 1 ? `<label class="acc-pick">Tài khoản <select id="acc-pick">${ids.map((id) => `<option value="${esc(id)}" ${id === acc.id ? "selected" : ""}>${esc(daily.accounts[id].name || id)}</option>`).join("")}</select></label>` : ""}
       <p><b>${esc(data.name || acc.id)}</b> · ngày <b>${esc(daily.date)}</b> <span class="muted">· cập nhật ${esc(fmtTime(daily.updatedAt))}</span></p>
       <table class="kpi-table"><thead><tr><th>Chỉ số</th><th>Hôm qua</th><th>TB 7 ngày</th><th>KPI</th></tr></thead>
@@ -264,7 +266,7 @@
     const k = config.kpi || {};
     return `<form class="form" id="kpi-form" autocomplete="off">
       <div class="row-2">${KPI_FIELDS.map((f) => `<label>${esc(f.label)}${f.unit ? ` (${f.unit})` : ""}<input type="text" inputmode="decimal" name="${f.k}" placeholder="${esc(f.ph)}" value="${k[f.k] == null ? "" : esc(k[f.k])}"></label>`).join("")}</div>
-      <div class="form-actions"><button type="button" class="btn btn-claude" data-act="kpi">⧉ Copy lệnh /kpi</button></div>
+      <div class="form-actions"><button type="button" class="btn btn-claude" data-act="kpi">${sendLabel("⧉ Copy lệnh /kpi")}</button></div>
       <p class="muted">Để trống = không đặt ngưỡng. Dán lệnh vào Claude Code để lưu vào <code>data/config.js</code>.</p>
     </form>`;
   }
@@ -280,7 +282,7 @@
     return `${items}
       <form class="form" id="dalam-form" autocomplete="off">
         <label>Tôi đã làm…<textarea name="change" placeholder="VD: Tăng ngân sách campaign Tin nhắn T11 từ 500k lên 700k/ngày">${esc(draft)}</textarea></label>
-        <div class="form-actions"><button type="button" class="btn btn-claude" data-act="dalam">⧉ Copy lệnh /da-lam</button></div>
+        <div class="form-actions"><button type="button" class="btn btn-claude" data-act="dalam">${sendLabel("⧉ Copy lệnh /da-lam")}</button></div>
         <p class="muted">Team ghi baseline hôm nay và tự đo lại sau 3–7 ngày trong báo cáo ngày.</p>
       </form>`;
   }
@@ -294,8 +296,7 @@
         const v = String(fd.get(f.k) || "").trim().replace(/\s/g, "");
         return `${f.k}=${v === "" ? "null" : v}`;
       });
-      await copyText(`/kpi ${parts.join(", ")}`);
-      toast("Đã copy lệnh /kpi — dán vào Claude Code");
+      await runOrCopy("kpi", parts.join(", "), `/kpi ${parts.join(", ")}`);
     });
     const df = document.getElementById("dalam-form");
     df.addEventListener("input", () => store.set("dalam-draft", df.elements.change.value));
@@ -303,8 +304,7 @@
       if (!e.target.closest("[data-act=dalam]")) return;
       const v = df.elements.change.value.trim();
       if (!v) { toast("Ghi việc bạn đã làm trước đã"); return; }
-      await copyText(`/da-lam ${v}`);
-      toast("Đã copy lệnh /da-lam — dán vào Claude Code");
+      await runOrCopy("da-lam", v, `/da-lam ${v}`);
     });
   }
 
@@ -325,10 +325,14 @@
     return `
       <div class="who"><span data-avatar></span><div><div class="who-no">CC</div><h2>CLAUDE CODE</h2><div class="muted">${esc(TEAM.assistant.title)}</div></div></div>
       ${statusPill(a.status || "idle")}
+      <h3>Nhật ký làm việc ${bridge.ok ? "(trực tiếp)" : ""}</h3>
+      ${bridge.ok ? `<div id="live-log-panel">${liveLogHtml(30)}</div>` : `<p class="muted">Chạy <code>node server.js</code> rồi mở http://localhost:8000 để giao việc thẳng từ web và xem team làm việc trực tiếp.</p>`}
       <h3>Lời nhắn cho Leader</h3><p>${esc(a.message || "Sẵn sàng nhận brief.")}</p>
       ${a.reportFile ? `<p><a href="${esc(a.reportFile)}" target="_blank" rel="noopener">Mở báo cáo tổng hợp →</a></p>` : ""}
       <h3>Cách giao việc</h3>
-      <div class="card">1. Phòng Leader → <b>Hỏi team</b>: gõ câu hỏi → <b>Copy lệnh /hoi</b>.<br>2. Dán vào Claude Code (mở trong thư mục repo này).<br>3. Claude Code chọn bộ phận phù hợp, team research & phân tích, rồi trả lời vào <code>reports/hoi-dap/</code>.</div>
+      <div class="card">${bridge.ok
+        ? "1. Phòng Leader → <b>Hỏi team</b>: gõ câu hỏi → <b>▶ Gửi cho team</b>.<br>2. Leader mang việc ra bàn Claude Code, Claude Code giao cho các bộ phận phù hợp.<br>3. Xem từng người làm việc trên văn phòng; xong thì câu trả lời hiện ở Bàn Leader."
+        : "1. Phòng Leader → <b>Hỏi team</b>: gõ câu hỏi → <b>Copy lệnh /hoi</b>.<br>2. Dán vào Claude Code (mở trong thư mục repo này).<br>3. Claude Code chọn bộ phận phù hợp, team research & phân tích, rồi trả lời vào <code>reports/hoi-dap/</code>."}</div>
       <div class="card">Lệnh nhanh: <code>/hoi</code> hỏi team · <code>/brief</code> brief chiến dịch · <code>/bao-cao</code> tình hình team · <code>/bao-cao-ngay</code> báo cáo Ads ngày · <code>/kpi</code> đặt ngưỡng · <code>/da-lam</code> ghi thay đổi đã làm.</div>
       <h3>Báo cáo</h3>${reportsHtml()}`;
   }
@@ -412,7 +416,7 @@
         <details ${d.assign && d.assign.length ? "open" : ""}><summary>Chọn bộ phận (để trống = Claude Code tự chọn)</summary>
           <div class="checks">${BRIEF_AGENTS.map((a) => `<label><input type="checkbox" name="assign" value="${a.id}" ${(d.assign || []).includes(a.id) ? "checked" : ""}>${a.no} ${esc(a.name)}</label>`).join("")}</div>
         </details>
-        <div class="form-actions"><button type="button" class="btn btn-claude" data-act="ask">⧉ Copy lệnh /hoi</button></div>
+        <div class="form-actions"><button type="button" class="btn btn-claude" data-act="ask">${sendLabel("⧉ Copy lệnh /hoi")}</button></div>
       </form>
       <pre class="preview" id="q-preview"></pre>
       <h3>Câu trả lời gần đây</h3>${questionsHtml(10)}`;
@@ -432,8 +436,8 @@
       if (!e.target.closest("[data-act=ask]")) return;
       const d = read();
       if (!d.q.trim()) { toast("Gõ câu hỏi trước đã"); form.elements.q.focus(); return; }
-      await copyText(questionCommand(d));
-      toast("Đã copy lệnh /hoi — dán vào Claude Code");
+      const cmd = questionCommand(d);
+      await runOrCopy("hoi", cmd.replace(/^\/hoi /, ""), cmd);
     });
   }
 
@@ -447,7 +451,7 @@
           <div class="checks">${BRIEF_AGENTS.map((a) => `<label><input type="checkbox" name="assign" value="${a.id}" ${assign.includes(a.id) ? "checked" : ""}>${a.no} ${esc(a.name)}</label>`).join("")}</div>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-claude" data-act="copy">⧉ Copy lệnh cho Claude Code</button>
+          <button type="button" class="btn btn-claude" data-act="copy">${sendLabel("⧉ Copy lệnh cho Claude Code")}</button>
           <button type="button" class="btn" data-act="download">⭳ Tải brief .md</button>
           <button type="button" class="btn btn-ghost" data-act="clear">Xoá nháp</button>
         </div>
@@ -510,9 +514,8 @@
       const d = readForm(form);
       if (act === "copy") {
         if (!d.title && !d.goal) { toast("Điền ít nhất tên brief hoặc mục tiêu"); return; }
-        const cmd = `/brief Lưu brief này vào briefs/${briefFilename(d)} rồi xử lý:\n\n${briefMarkdown(d)}`;
-        await copyText(cmd);
-        toast("Đã copy — dán vào Claude Code");
+        const body = `Lưu brief này vào briefs/${briefFilename(d)} rồi xử lý:\n\n${briefMarkdown(d)}`;
+        await runOrCopy("brief", body, `/brief ${body}`);
       } else if (act === "download") {
         const blob = new Blob([briefMarkdown(d) + "\n"], { type: "text/markdown;charset=utf-8" });
         const a = document.createElement("a");
@@ -527,6 +530,27 @@
         renderPanel();
       }
     });
+  }
+
+  // ---------- Gửi việc: qua server cầu nối nếu có, không thì copy lệnh ----------
+  const bridge = { ok: false, current: null, queue: 0 };
+  const sendLabel = (copyLabel) => bridge.ok ? "▶ Gửi cho team" : copyLabel;
+
+  async function runOrCopy(kind, text, cmd) {
+    if (!bridge.ok) {
+      await copyText(cmd);
+      toast(`Đã copy lệnh ${cmd.split(" ")[0]} — dán vào Claude Code`);
+      return;
+    }
+    try {
+      const r = await fetch("api/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, text }) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || r.statusText);
+      toast(j.position ? `Đã gửi — xếp hàng thứ ${j.position}` : "Đã gửi cho team — Claude Code đang nhận việc");
+    } catch (err) {
+      await copyText(cmd);
+      toast(`Không gửi được (${err.message}) — đã copy lệnh để dán tay`);
+    }
   }
 
   async function copyText(text) {
@@ -571,11 +595,12 @@
   panel.addEventListener("click", async (e) => {
     const dl = e.target.closest("[data-dalam]");
     if (dl) {
-      await copyText(`/da-lam ${dl.dataset.dalam}`);
       store.set("dalam-draft", dl.dataset.dalam);
-      toast("Đã copy lệnh /da-lam — dán vào Claude Code để team đo lại");
+      await runOrCopy("da-lam", dl.dataset.dalam, `/da-lam ${dl.dataset.dalam}`);
       return;
     }
+    if (e.target.closest("[data-run-daily]")) { await runOrCopy("bao-cao-ngay", "", "/bao-cao-ngay"); return; }
+    if (e.target.closest("[data-stop]")) { await stopJob(); return; }
     const tab = e.target.closest("[data-tab]");
     if (tab) { store.set("leader-tab", tab.dataset.tab); renderPanel(); return; }
     const li = e.target.closest("[data-open]");
@@ -589,6 +614,7 @@
     const last = acc && acc.data.days[acc.data.days.length - 1];
     const nAlerts = acc ? Object.values(daily.accounts).reduce((n, a) => n + (a.alerts || []).length, 0) : 0;
     statusbar.innerHTML = `
+      <span class="conn ${bridge.ok ? "on" : ""}" title="${esc(bridge.version || "")}">● ${bridge.ok ? (bridge.current ? "Claude Code đang làm việc" : "Claude Code đã kết nối") : bridge.server ? "Server chạy nhưng thiếu lệnh claude" : "Chưa kết nối — chạy node server.js"}</span>
       ${state.demo ? `<span class="demo-badge">BRIEF MẪU</span>` : ""}
       ${last ? `<span>Hôm qua: <b>chi ${short(last.spend)} · ${num(last.messages)} TN · ${num(last.leads)} lead</b></span><span>Cảnh báo: <b>${nAlerts}</b></span>` : ""}
       <span>${isQuestion() ? "Câu hỏi" : "Brief"}: <b>${esc((state.activeBrief && state.activeBrief.title) || "—")}</b></span>
@@ -626,6 +652,115 @@
     if (manual) toast(ok.every(Boolean) ? "Đã tải lại dữ liệu" : "Có file data/*.js không đọc được");
   }
 
+  // ---------- Trực tiếp từ server cầu nối (node server.js) ----------
+  const liveLog = [];
+  const liveStrip = document.getElementById("livelog");
+  const lastTool = {};
+  const doneTimers = {};
+  const KIND_LABEL = { hoi: "câu hỏi", brief: "brief", "bao-cao": "báo cáo nhanh", "bao-cao-ngay": "báo cáo ngày", kpi: "KPI", "da-lam": "nhật ký thay đổi" };
+  const clip = (t, n) => { t = String(t || "").replace(/\s+/g, " ").trim(); return t.length > n ? t.slice(0, n - 1) + "…" : t; };
+  const who = (id) => id === "assistant" ? "Claude Code" : (() => { const d = agentDef(id) || {}; return `${d.no || ""} ${d.short || id}`; })();
+  const hhmm = (iso) => new Date(iso || Date.now()).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+
+  function liveLogHtml(n) {
+    const rows = liveLog.slice(-n).reverse();
+    const head = bridge.current
+      ? `<div class="live-head"><span>Đang làm: <b>${esc(clip(bridge.current.text || KIND_LABEL[bridge.current.kind], 60))}</b>${bridge.queue ? ` · ${bridge.queue} việc chờ` : ""}</span><button type="button" class="btn btn-mini-stop" data-stop>■ Dừng</button></div>`
+      : "";
+    return head + (rows.length ? `<ul class="live-list">${rows.map((r) => `<li class="lv-${r.cls}"><span class="muted">${hhmm(r.at)}</span> ${esc(r.text)}</li>`).join("")}</ul>` : `<p class="muted">Chưa có việc nào. Gửi câu hỏi ở Bàn Leader.</p>`);
+  }
+
+  function renderLiveLog() {
+    if (liveStrip) {
+      liveStrip.hidden = !bridge.ok;
+      if (bridge.ok) liveStrip.innerHTML = liveLogHtml(bridge.current ? 4 : 2);
+    }
+    const p = document.getElementById("live-log-panel");
+    if (p) p.innerHTML = liveLogHtml(30);
+  }
+
+  function logLine(ev, text, cls) {
+    liveLog.push({ at: ev.at, text, cls });
+    if (liveLog.length > 80) liveLog.shift();
+  }
+
+  function handleEvent(ev, replay) {
+    const L = office.live;
+    if (ev.type === "job") {
+      const j = ev.job || {};
+      bridge.queue = ev.queued || 0;
+      if (ev.phase === "queued") {
+        logLine(ev, `Xếp hàng ${KIND_LABEL[j.kind] || j.kind}: ${clip(j.text, 60)}`, "muted");
+      } else if (ev.phase === "start") {
+        bridge.current = j;
+        logLine(ev, `Claude Code nhận ${KIND_LABEL[j.kind] || j.kind}: ${clip(j.text, 60)}`, "start");
+        if (replay) L.setStatus("assistant", "working");
+        else L.leaderDeliver(() => { L.setStatus("assistant", "working"); L.say("assistant", "Nhận việc!", 3000); });
+      } else {
+        bridge.current = null;
+        Object.values(doneTimers).forEach(clearTimeout);
+        L.clear();
+        const ok = ev.phase === "done";
+        logLine(ev, ok ? `✓ Xong: ${clip(j.result, 160)}` : ev.phase === "stopped" ? "■ Đã dừng" : `✗ Lỗi: ${clip(j.result, 160)}`, ok ? "ok" : "err");
+        if (!replay) {
+          L.say("assistant", ok ? "Xong rồi!" : "Có lỗi…", 5000);
+          toast(ok ? "Team đã trả lời ✓" : ev.phase === "stopped" ? "Đã dừng việc" : "Việc bị lỗi — xem nhật ký ở bàn Claude Code");
+          reloadState(false).then(() => { if (ok && j.kind === "hoi") { store.set("leader-tab", "hoi"); open("leader"); } });
+        }
+      }
+      renderStatusbar();
+    } else if (ev.type === "text") {
+      if (!replay) L.say("assistant", ev.text.replace(/\/[\w-]+\s*/g, "").trim() || "Đang suy nghĩ…", 4000);
+      logLine(ev, `Claude Code: ${clip(ev.text, 120)}`, "muted");
+    } else if (ev.type === "assign") {
+      logLine(ev, `→ Giao ${who(ev.agent)}: ${clip(ev.text, 80)}`, "assign");
+      if (replay) L.setStatus(ev.agent, "working");
+      else L.fly("assistant", ev.agent, () => { L.setStatus(ev.agent, "working"); L.say(ev.agent, "Nhận việc!", 2500); });
+    } else if (ev.type === "tool") {
+      if (!replay) L.say(ev.agent, `${ev.tool}…`, 4000);
+      if (lastTool[ev.agent] !== ev.tool) { lastTool[ev.agent] = ev.tool; logLine(ev, `${who(ev.agent)} dùng ${ev.tool}`, "tool"); }
+    } else if (ev.type === "agent-done") {
+      logLine(ev, `${who(ev.agent)} nộp kết quả${ev.error ? " (có lỗi)" : ""}`, "ok");
+      L.setStatus(ev.agent, replay ? "done" : "reporting");
+      if (!replay) {
+        clearTimeout(doneTimers[ev.agent]);
+        doneTimers[ev.agent] = setTimeout(() => L.setStatus(ev.agent, "done"), 8000);
+      }
+    }
+    renderLiveLog();
+  }
+
+  async function stopJob() {
+    if (!bridge.current) return;
+    if (!confirm("Dừng việc team đang làm?")) return;
+    try { await fetch("api/stop", { method: "POST" }); } catch (e) { toast("Không dừng được"); }
+  }
+
+  async function connectBridge() {
+    if (location.protocol === "file:") return;
+    try {
+      const r = await fetch("api/status", { cache: "no-store" });
+      if (!r.ok) return;
+      const st = await r.json();
+      bridge.server = true;
+      bridge.ok = !!st.claude;
+      bridge.version = st.claudeVersion;
+      (st.events || []).forEach((e) => handleEvent(e, true));
+      bridge.current = st.current || null;
+      bridge.queue = (st.queue || []).length;
+      renderPanel();
+      renderStatusbar();
+      renderLiveLog();
+      if (!bridge.ok) return;
+      const es = new EventSource("api/events");
+      es.onmessage = (m) => { try { handleEvent(JSON.parse(m.data), false); } catch (e) { /* bỏ qua dòng hỏng */ } };
+    } catch (e) { /* không có server cầu nối → chế độ copy lệnh */ }
+  }
+
+  if (liveStrip) liveStrip.addEventListener("click", (e) => { if (e.target.closest("[data-stop]")) stopJob(); });
+  // Khi team đang làm thì đọc lại data/*.js thường xuyên hơn.
+  setInterval(() => { if (bridge.current) reloadState(false); }, 3000);
+
   let timer = null;
   const auto = document.getElementById("auto-reload");
   function setAuto(on) {
@@ -644,4 +779,5 @@
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => office.resize());
   applyState();
   renderPanel();
+  connectBridge();
 })();

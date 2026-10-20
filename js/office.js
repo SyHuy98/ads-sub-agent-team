@@ -40,6 +40,8 @@
   }
 
   const LEADER = { deskX: 126, deskY: 62, seat: { x: 155, y: 50 }, zone: { x: 104, y: 30, w: 112, h: 62 } };
+  // Leader mang việc ra bàn Claude Code: đi vòng phải bàn, ra cửa phòng, dọc hành lang.
+  const LEADER_ROUTE = [{ x: 199, y: 50 }, { x: 199, y: 78 }, { x: 162, y: 78 }, { x: 162, y: CORRIDOR_Y }, { x: 62, y: CORRIDOR_Y }];
   const ASSIST = { deskX: 20, deskY: 62, zone: { x: 6, y: 2, w: 94, h: 90 } };
   const WALKING = { reporting: true, alert: true };
 
@@ -68,7 +70,12 @@
     let hover = null, selected = null, scale = 1;
     const blinkAt = {};
 
+    // Lớp "trực tiếp": trạng thái do server cầu nối đẩy về, đè lên data/state.js.
+    const live = { status: {}, say: {}, papers: [] };
+    const leaderWalk = { phase: "seat", x: LEADER.seat.x, y: LEADER.seat.y, path: [], timer: 0, frame: 0 };
+
     function statusOf(id) {
+      if (live.status[id]) return live.status[id];
       if (id === "assistant") return (state.assistant && state.assistant.status) || "idle";
       return (state.agents && state.agents[id] && state.agents[id].status) || "idle";
     }
@@ -250,8 +257,16 @@
       // Leader
       items.push({ y: LEADER.deskY - 1, draw() {
         drawChair(c, LEADER.seat.x, LEADER.seat.y + 2, "#5b2f2f");
-        S.person(c, LEADER.seat.x, LEADER.seat.y, window.TEAM.leader.look, "sit", { blink: blinking("leader", t) });
+        if (leaderWalk.phase === "seat") S.person(c, LEADER.seat.x, LEADER.seat.y, window.TEAM.leader.look, "sit", { blink: blinking("leader", t) });
       } });
+      if (leaderWalk.phase !== "seat") {
+        items.push({ y: leaderWalk.y + 14, draw() {
+          const x = Math.round(leaderWalk.x), y = Math.round(leaderWalk.y);
+          const pose = leaderWalk.phase === "stay" ? "stand" : (Math.floor(leaderWalk.frame) % 2 ? "walkA" : "walkB");
+          S.person(c, x, y, window.TEAM.leader.look, pose, { blink: blinking("leader", t) });
+          if (leaderWalk.phase !== "back") S.paper(c, x + 10, y + 8);
+        } });
+      }
       items.push({ y: LEADER.deskY + 14, draw() {
         S.monitorBack(c, LEADER.deskX + 6, LEADER.deskY - 13);
         S.desk(c, LEADER.deskX, LEADER.deskY, 68, "#8a5a36");
@@ -308,6 +323,7 @@
       });
 
       items.sort((p, q) => p.y - q.y).forEach((it) => it.draw());
+      drawPapers(c, t);
 
       // khung chọn / hover
       const outline = (z, color, dashed) => {
@@ -362,6 +378,61 @@
       label("Lead " + (d.leads || 0) + " · " + shortMoney(d.costPerLead), TV.x + 4, TV.y + 20, Object.assign({}, vt, { color: "#9ff0b4" }));
     }
 
+    // ---------- Lớp trực tiếp: giấy bay, Leader đi giao việc, bong bóng chữ ----------
+    function anchor(id) {
+      if (id === "assistant") return { x: 51, y: 52 };
+      if (id === "leader") return { x: Math.round(leaderWalk.x) + 5, y: Math.round(leaderWalk.y) + 2 };
+      const a = agents.find((x) => x.def.id === id);
+      return a ? { x: a.walker.x + 5, y: a.walker.y + 2 } : null;
+    }
+
+    function drawPapers(c, t) {
+      const now = performance.now();
+      live.papers = live.papers.filter((p) => {
+        const k = Math.min(1, (now - p.t0) / p.dur);
+        const to = anchor(p.to) || p.from;
+        const x = p.from.x + (to.x - p.from.x) * k;
+        const y = p.from.y + (to.y - p.from.y) * k - Math.sin(k * Math.PI) * 26;
+        S.px(c, Math.round(x) + 1, Math.round(y) + 2, 6, 7, "rgba(0,0,0,0.18)");
+        S.paper(c, Math.round(x), Math.round(y));
+        if (k >= 1) { p.onArrive && p.onArrive(); return false; }
+        return true;
+      });
+    }
+
+    function updateLeader(dt) {
+      const w = leaderWalk;
+      if (w.phase === "seat") return;
+      if (w.phase === "stay") {
+        w.timer -= dt;
+        if (w.timer <= 0) { w.phase = "back"; w.path = LEADER_ROUTE.slice(0, -1).reverse().concat([{ x: LEADER.seat.x, y: LEADER.seat.y }]); }
+        return;
+      }
+      let step = WALK_SPEED * 1.8 * dt;
+      while (step > 0 && w.path.length) {
+        const p = w.path[0];
+        const dx = p.x - w.x, dy = p.y - w.y, d = Math.hypot(dx, dy);
+        if (d <= step) { w.x = p.x; w.y = p.y; w.path = w.path.slice(1); step -= d; }
+        else { w.x += (dx / d) * step; w.y += (dy / d) * step; step = 0; }
+      }
+      w.frame += dt * 7;
+      if (!w.path.length) {
+        if (w.phase === "go") { w.phase = "stay"; w.timer = 1.6; w.onArrive && w.onArrive(); w.onArrive = null; }
+        else { w.phase = "seat"; w.x = LEADER.seat.x; w.y = LEADER.seat.y; }
+      }
+    }
+
+    function drawSay() {
+      const now = performance.now();
+      for (const id of Object.keys(live.say)) {
+        const s = live.say[id];
+        if (now > s.until) { delete live.say[id]; continue; }
+        const a = anchor(id);
+        if (!a) continue;
+        label(s.text, a.x, a.y - 7, { bg: "#fffbe9", color: "#22232b", font: '"VT323", monospace', size: 5.2, min: 11 });
+      }
+    }
+
     function drawLabels() {
       label("LEADER · BẠN", 160, 34.5, { bg: "#f2c230", color: "#2a2210", font: '"VT323", monospace', size: 6 });
       label("CLAUDE CODE", 51, 86, { bg: "#d97757", color: "#fff" });
@@ -372,6 +443,7 @@
       const n = (state.awaitingLeader || []).length;
       if (n) label(`${n} việc chờ duyệt`, 160, 84.5, { bg: "#c0392b", font: '"VT323", monospace', size: 6 });
       drawTVText();
+      drawSay();
     }
 
     function countDone() {
@@ -419,6 +491,7 @@
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
       agents.forEach((a) => updateWalker(a, dt));
+      updateLeader(dt);
       render(now / 1000);
       requestAnimationFrame(loop);
     }
@@ -429,6 +502,20 @@
       setDaily(d) { daily = d || { accounts: {} }; },
       select(id) { selected = id; },
       resize,
+      live: {
+        setStatus(id, st) { if (st) live.status[id] = st; else delete live.status[id]; },
+        clear() { live.status = {}; },
+        say(id, text, ms) { live.say[id] = { text: String(text).slice(0, 34), until: performance.now() + (ms || 4000) }; },
+        fly(fromId, toId, onArrive) {
+          const from = anchor(fromId);
+          if (!from) return onArrive && onArrive();
+          live.papers.push({ from: { x: from.x - 3, y: from.y }, to: toId, t0: performance.now(), dur: 1400, onArrive });
+        },
+        leaderDeliver(onArrive) {
+          if (leaderWalk.phase !== "seat") return onArrive && onArrive();
+          Object.assign(leaderWalk, { phase: "go", path: LEADER_ROUTE.slice(), onArrive });
+        },
+      },
     };
   }
 
