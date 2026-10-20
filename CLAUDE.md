@@ -61,6 +61,8 @@ Leader chỉ cần gõ một câu hỏi; team tự research, phân tích rồi t
 | `reports/bai-hoc.md` | `/bao-cao-ngay` | Thư viện bài học từ các thay đổi đã đo |
 | `reports/hoi-dap/YYYY-MM-DD-<slug>.md` | `/hoi` | Câu trả lời của team cho câu hỏi của Leader |
 
+Nguồn dữ liệu: ưu tiên `ADS_ANALYZS_FOR_NT_BEAUTY_SPA`; khi connector này báo hết lượt (gói Free Pipeboard) hoặc lỗi quota thì dùng `META_ADS_CONNECTION` cho cùng tài khoản, ghi rõ nguồn trong báo cáo.
+
 Đọc số liệu: tin nhắn = action `onsite_conversion.messaging_conversation_started_7d`, lead = action `lead`. Tài khoản chính hiện tại: `act_826563696751473` (NTSpa's Women, BM NT Spa Women) qua connector `ADS_ANALYZS_FOR_NT_BEAUTY_SPA`.
 
 ## Mẫu báo cáo tổng hợp
@@ -94,5 +96,12 @@ Leader chỉ cần gõ một câu hỏi; team tự research, phân tích rồi t
 - `/kpi <ngưỡng>` — Leader đặt ngưỡng KPI/cảnh báo.
 - `/da-lam <việc đã làm>` — ghi nhật ký thay đổi để đo lại sau 3–7 ngày.
 
+## Chạy qua web (server.js, headless)
+Leader có thể giao việc thẳng từ web khi chạy `node server.js`. Server gọi `claude -p "/hoi ..."` (hoặc `/brief`, `/bao-cao-ngay`, `/kpi`, `/da-lam`) trong repo này, kèm `.claude/headless-prompt.md`. Web dựng hoạt ảnh từ luồng sự kiện của phiên: gọi sub-agent, tool đang dùng, sub-agent trả kết quả. Khi chạy kiểu này:
+- Không hỏi lại Leader giữa chừng. Gọi sub-agent với `run_in_background: false`; muốn song song thì gọi nhiều agent trong cùng một lượt.
+- Vẫn cập nhật `data/*.js` như thường để web hiện kết quả.
+- Lệnh Bash đơn giản, mỗi lệnh một việc (chỉ `node`, `git`, `date`, `mkdir`, `ls` được phép).
+- Câu trả lời cuối ngắn gọn, tối đa 8 dòng: web hiển thị nguyên văn.
+
 ## Web văn phòng
-Mở `index.html` trực tiếp, hoặc chạy `python3 -m http.server 8000` trong repo rồi vào http://localhost:8000. Code web: `js/office.js` (canvas pixel), `js/sprites.js` (pixel art), `js/app.js` (panel, form brief), `js/team.js` (định nghĩa team). Không dùng thư viện ngoài.
+Chạy `node server.js` (hoặc `start.bat` / `start.sh`) rồi vào http://localhost:8000 để giao việc thẳng từ web. Mở `index.html` trực tiếp vẫn xem được, nhưng chỉ ở chế độ copy lệnh. Server: `server.js` (Node thuần, không cần npm). Code web: `js/office.js` (canvas pixel), `js/sprites.js` (pixel art), `js/app.js` (panel, form brief), `js/team.js` (định nghĩa team). Không dùng thư viện ngoài.

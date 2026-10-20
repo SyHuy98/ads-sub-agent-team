@@ -20,11 +20,29 @@ Một team Meta Ads chạy trên Claude Code, kèm trang web văn phòng pixel �
 
 **Nguyên tắc:** các bộ phận chỉ **đọc dữ liệu & góp ý**. Mọi thao tác tạo/sửa/bật/tắt trên Ads Manager do **bạn** tự làm. Hook `.claude/hooks/meta-ads-readonly.js` chặn mọi tool ghi của MCP quảng cáo để đảm bảo điều đó.
 
-## Mở văn phòng
-- Mở thẳng file `index.html` bằng trình duyệt, **hoặc**
-- `python3 -m http.server 8000` trong thư mục repo → vào http://localhost:8000
+## Mở văn phòng (giao việc thẳng trên web)
+**Cần có:** Node.js và Claude Code đã đăng nhập trên máy. Trong Claude Code gõ `/mcp` để chắc chắn đã thấy connector Meta Ads.
 
-Bấm vào bàn từng người để xem nhiệm vụ, kết quả và **đề xuất cho Leader** (tích vào ô khi bạn đã tự làm xong). Bấm vào phòng Leader (hoặc nút **❓ Hỏi team**) để hỏi team hoặc viết brief. Bật **Tự cập nhật** để web đọc lại trạng thái mỗi 10 giây.
+1. Chạy văn phòng bằng một trong hai cách:
+   - **Windows:** bấm đúp `start.bat`.
+   - **Mac/Linux:** chạy `./start.sh`, hoặc `node server.js`.
+2. Trình duyệt mở http://localhost:8000. Thanh dưới hiện **● Claude Code đã kết nối**.
+3. Bấm **❓ Hỏi team** → gõ câu hỏi → **▶ Gửi cho team**. Không cần mở terminal để dán lệnh.
+4. Xem team làm việc trực tiếp trên văn phòng:
+   - Leader mang việc ra bàn Claude Code.
+   - Claude Code ném việc (tờ giấy bay) tới bàn từng bộ phận.
+   - Nhân viên gõ phím, trên đầu hiện tool đang dùng (VD `get_insights…`).
+   - Xong việc thì nhân viên đi nộp báo cáo.
+   - Câu trả lời tự mở ở Bàn Leader.
+5. **Nhật ký làm việc** nằm dưới văn phòng (và ở bàn Claude Code). Bấm **■ Dừng** nếu muốn huỷ việc đang chạy. Gửi nhiều việc cùng lúc thì các việc tự xếp hàng.
+
+Các nút khác cũng gửi thẳng: Brief chiến dịch, KPI, Ghi nhật ký, ▶ Chạy báo cáo ngày (ở TV phòng 08).
+
+Server chỉ nhận kết nối từ chính máy bạn (127.0.0.1). Khi chạy, Claude Code dùng tài khoản Claude của bạn. Team vẫn **chỉ đọc** Meta Ads: hook chặn mọi thao tác ghi. Log từng việc lưu ở `logs/jobs/` (không đưa lên git).
+
+Không chạy server mà mở thẳng `index.html` thì web vẫn xem được, nhưng các nút trở về chế độ **Copy lệnh** để dán vào Claude Code.
+
+Bấm vào bàn từng người để xem nhiệm vụ, kết quả và **đề xuất cho Leader** (tích vào ô khi bạn đã tự làm xong). Bấm vào phòng Leader (hoặc nút **❓ Hỏi team**) để hỏi team hoặc viết brief. Bật **Tự cập nhật** để web đọc lại trạng thái mỗi 10 giây (khi team đang làm việc thì 3 giây).
 
 Báo cáo ngày trên TV là số liệu thật. Các bộ phận 02–07 ở trạng thái "Rảnh" cho tới khi bạn giao brief đầu tiên.
 
@@ -34,7 +52,7 @@ Không cần viết brief dài, chỉ cần hỏi:
    - "Vì sao CPM tăng 1 tuần nay?"
    - "Nên dồn ngân sách vào campaign nào?"
    - "Đối thủ đang chạy ưu đãi gì cho triệt lông?"
-2. Bấm **Copy lệnh /hoi** rồi dán vào Claude Code. Hoặc gõ thẳng `/hoi <câu hỏi>`.
+2. Bấm **▶ Gửi cho team** (khi chạy `node server.js`). Nếu chỉ mở `index.html` thì bấm **Copy lệnh /hoi** rồi dán vào Claude Code, hoặc gõ thẳng `/hoi <câu hỏi>`.
 3. Claude Code tự chọn 1–4 bộ phận phù hợp. Muốn tự chọn thì tick ở form, hoặc thêm `[giao: performance-analyst,media-buyer]`. Các bộ phận research và phân tích bằng dữ liệu thật, rồi trả lời gồm: trả lời ngắn, bằng chứng, việc bạn có thể làm.
 4. Câu trả lời lưu ở `reports/hoi-dap/` và hiện ở mục **Câu trả lời gần đây** trên Bàn Leader.
 
@@ -73,6 +91,7 @@ Các bộ phận dùng connector Meta Ads (MCP) bạn đã kết nối trong Cla
 | Đường dẫn | Nội dung |
 |---|---|
 | `index.html`, `css/`, `js/` | Web văn phòng pixel (không cần cài gì) |
+| `server.js`, `start.bat`, `start.sh` | Server cầu nối: giao việc từ web cho Claude Code, đẩy tiến độ trực tiếp về web |
 | `data/state.js` | Trạng thái văn phòng — Claude Code cập nhật |
 | `data/config.js` | Tài khoản theo dõi & ngưỡng KPI |
 | `data/daily.js` | Số liệu báo cáo ngày (14 ngày) |

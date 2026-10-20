@@ -30,6 +30,7 @@ So ngày `D` với **ngưỡng KPI** (nếu đã đặt) và với **trung bình
 Gắn cờ cả ở cấp campaign khi một campaign kéo tụt cả tài khoản.
 
 ## Luật cứng
+- **Nguồn dữ liệu**: ưu tiên connector `ADS_ANALYZS_FOR_NT_BEAUTY_SPA`. Nếu tool báo hết lượt (gói Free Pipeboard), lỗi quota hoặc không có quyền → chuyển sang `META_ADS_CONNECTION` cho cùng tài khoản (`ads_get_ad_entities`, `ads_insights_performance_trend`, `ads_insights_anomaly_signal`, `ads_get_creatives`, `ads_get_dataset_quality`, `ads_get_ad_preview`…), không dừng việc. Ghi rõ đã dùng nguồn nào.
 - Chỉ đọc. Không tạo/sửa/bật/tắt bất cứ gì. Không chỉnh file trong repo — trả kết quả cho Claude Code.
 - Không bịa số. Gọi tool lỗi hoặc thiếu dữ liệu thì nói rõ.
 - Không đưa thông tin cá nhân của khách hàng vào báo cáo.
