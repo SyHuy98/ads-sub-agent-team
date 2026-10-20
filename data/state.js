@@ -3,7 +3,7 @@
 // status hợp lệ: idle | working | reporting | waiting | done | alert
 window.OFFICE_STATE = {
   "demo": false,
-  "updatedAt": "2026-10-20T09:00:00+07:00",
+  "updatedAt": "2026-10-20T09:20:00+07:00",
   "activeBrief": {
     "id": "q-20261020-vi-sao-cpm-tang",
     "title": "Vì sao CPM tăng từ 09/10 đến nay, nên làm gì?",
@@ -12,7 +12,7 @@ window.OFFICE_STATE = {
   },
   "assistant": {
     "status": "working",
-    "message": "Đang hỏi Analyst + Media Buyer về CPM tăng.",
+    "message": "Analyst đã nộp phân tích CPM; đang chờ Media Buyer.",
     "reportFile": ""
   },
   "agents": {
@@ -45,11 +45,37 @@ window.OFFICE_STATE = {
       "reportFile": ""
     },
     "performance-analyst": {
-      "status": "working",
+      "status": "waiting",
       "task": "Phân tích CPM theo ngày/campaign/placement từ 09/10, tìm nguyên nhân",
-      "summary": "",
-      "recommendations": [],
-      "reportFile": ""
+      "summary": "CPM +29% (93k→120k): ~40% do ngân sách rời Lách 20Jan (CPM 67–81k) sang campaign CPM 140–170k, ~60% do giá từng campaign tăng (NuVP_T9 bão hoà, Dup13Oct đang học) và >30 lần sửa ngân sách. Thiệt hại thật: tin nhắn -30%, chi phí/tin nhắn chỉ +12%.",
+      "recommendations": [
+        {
+          "id": "a1",
+          "text": "Giữ nguyên ngân sách mọi campaign tới ~23/10; sau đó mỗi lần chỉnh tối đa ±20%, cách nhau ≥48h",
+          "priority": "cao"
+        },
+        {
+          "id": "a2",
+          "text": "Tăng 'Lách – Dup13Oct' 800k → ~960k/ngày (21/10); 48h sau nếu chi phí/tin nhắn <100k thì +20% tiếp",
+          "priority": "cao"
+        },
+        {
+          "id": "a3",
+          "text": "NuVP_T9: giảm 800k → ~600k/ngày, thay 2–3 creative mới, nới tệp (reach 21,6k→14,2k, chi phí/tin nhắn 52k→104k)",
+          "priority": "trung bình"
+        },
+        {
+          "id": "a4",
+          "text": "NamLGBT_T9: giữ 1tr/ngày, thêm creative; tần suất 7 ngày >3 thì giảm 20%",
+          "priority": "trung bình"
+        },
+        {
+          "id": "a5",
+          "text": "Thêm thẻ dự phòng/nạp trước ở Billing — 19/10 tài khoản bị ngừng ~4,7 giờ chờ thanh toán",
+          "priority": "thấp"
+        }
+      ],
+      "reportFile": "reports/hoi-dap/2026-10-20-vi-sao-cpm-tang.md"
     },
     "compliance-qa": {
       "status": "idle",
