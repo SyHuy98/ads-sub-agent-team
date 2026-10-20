@@ -3,17 +3,17 @@
 // status hợp lệ: idle | working | reporting | waiting | done | alert
 window.OFFICE_STATE = {
   "demo": false,
-  "updatedAt": "2026-10-20T09:45:00+07:00",
+  "updatedAt": "2026-10-20T14:36:00+07:00",
   "activeBrief": {
-    "id": "q-20261020-vi-sao-cpm-tang",
-    "title": "Vì sao CPM tăng từ 09/10 đến nay, nên làm gì?",
+    "id": "q-20261020-tom-tat-bc-ngay-1610",
+    "title": "Tóm tắt nhanh báo cáo ngày 16/10 (đọc data/daily.js)",
     "type": "question",
-    "file": "reports/hoi-dap/2026-10-20-vi-sao-cpm-tang.md"
+    "file": "reports/hoi-dap/2026-10-20-tom-tat-bc-ngay-1610.md"
   },
   "assistant": {
     "status": "done",
-    "message": "CPM +29% (93k→120k) chủ yếu vì tài khoản tự đấu giá với chính mình: 2 tệp Fashionista/Mommy bị nhân ra 13 ad set ở 8 campaign, ngân sách bị sửa ~30 lần trong 12 ngày, và tiền rút khỏi campaign rẻ nhất (Lách 20Jan). Thiệt hại thật là tin nhắn -30%; chi phí/tin nhắn chỉ +12%. Cách sửa: mỗi tệp giữ 1 ad set tốt nhất + ngừng sửa ngân sách 72 giờ.",
-    "reportFile": "reports/hoi-dap/2026-10-20-vi-sao-cpm-tang.md"
+    "message": "Ngày 16/10: chi phí/tin nhắn 84k (-18% so TB7), chi phí/lead 527k (-35%), CTR 2,36% — nhưng chi tiêu -38% nên tin nhắn -24%, CPM tăng lên 138k (+28,5%). 3 cảnh báo vàng, không có đỏ.",
+    "reportFile": "reports/hoi-dap/2026-10-20-tom-tat-bc-ngay-1610.md"
   },
   "agents": {
     "strategy-research": {
@@ -151,6 +151,12 @@ window.OFFICE_STATE = {
   "reports": [
     {
       "date": "2026-10-20",
+      "title": "Hỏi đáp: Tóm tắt nhanh báo cáo ngày 16/10",
+      "file": "reports/hoi-dap/2026-10-20-tom-tat-bc-ngay-1610.md",
+      "summary": "Ngày 16/10: chi phí/tin nhắn 84k (-18% so TB7), chi phí/lead 527k (-35%), CTR 2,36% — nhưng chi tiêu -38% nên tin nhắn -24%, CPM tăng lên 138k (+28,5%). 3 cảnh báo vàng, không có đỏ."
+    },
+    {
+      "date": "2026-10-20",
       "title": "Hỏi đáp: Vì sao CPM tăng từ 09/10?",
       "file": "reports/hoi-dap/2026-10-20-vi-sao-cpm-tang.md",
       "summary": "Tự đấu giá do trùng tệp + sửa ngân sách liên tục; tin nhắn -30%. Gộp mỗi tệp còn 1 ad set, ngừng sửa ngân sách 72h."
@@ -163,6 +169,16 @@ window.OFFICE_STATE = {
     }
   ],
   "questions": [
+    {
+      "id": "q-20261020-tom-tat-bc-ngay-1610",
+      "date": "2026-10-20",
+      "question": "Tóm tắt nhanh báo cáo ngày 16/10",
+      "shortAnswer": "Ngày 16/10: chi phí/tin nhắn 84k (-18% so TB7), chi phí/lead 527k (-35%), CTR 2,36% — nhưng chi tiêu -38% nên tin nhắn -24%, CPM tăng lên 138k (+28,5%). 3 cảnh báo vàng, không có đỏ.",
+      "agents": [
+        "performance-analyst"
+      ],
+      "file": "reports/hoi-dap/2026-10-20-tom-tat-bc-ngay-1610.md"
+    },
     {
       "id": "q-20261020-vi-sao-cpm-tang",
       "date": "2026-10-20",

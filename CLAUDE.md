@@ -46,6 +46,7 @@ Leader chỉ cần gõ một câu hỏi; team tự research, phân tích rồi t
 - `status`: `idle | working | reporting | waiting | done`.
 - `status` thêm `alert` (chỉ dùng cho `performance-analyst` khi báo cáo ngày có cảnh báo đỏ — nhân vật chạy vào phòng Leader).
 - `activeBrief`: `null` hoặc `{ id, title, file, type }` với `type` = `"brief"` (mặc định) hoặc `"question"`.
+- `awaitingLeader`: **không bao giờ xoá khi bắt đầu việc mới** — chỉ bỏ mục nào Leader đã trả lời/chốt. Bộ phận đang `waiting` vì việc cũ thì giữ `waiting` nếu không được giao việc mới.
 - `questions`: mảng hỏi đáp, mới nhất ở đầu, tối đa 20 mục: `{ id, date, question, shortAnswer, agents: [id...], file }`.
 - Id agent: `strategy-research`, `creative-specialist`, `media-buyer`, `tracking-crm`, `performance-analyst`, `compliance-qa`, `daily-reporter`.
 - Web (`index.html`) tự đọc lại file này mỗi 10 giây, nên cập nhật sau mỗi bước để Leader thấy team đang làm gì.

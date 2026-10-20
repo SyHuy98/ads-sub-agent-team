@@ -12,7 +12,8 @@ Làm đúng **Quy trình hỏi đáp (`/hoi`)** trong `CLAUDE.md`:
 3. **Mở văn phòng** (`data/state.js`):
    - `activeBrief = { "id": "q-YYYYMMDD-<slug>", "title": <câu hỏi rút gọn ≤ 80 ký tự>, "type": "question", "file": "reports/hoi-dap/YYYY-MM-DD-<slug>.md" }`
    - `assistant.status = "working"`
-   - Bộ phận được chọn chuyển `working`, `task` = phần câu hỏi họ lo. Các bộ phận 02–07 còn lại để `idle`, không đụng `daily-reporter`.
+   - Bộ phận được chọn chuyển `working`, `task` = phần câu hỏi họ lo. Bộ phận **không** được chọn: giữ nguyên nếu đang `waiting` (còn việc chờ Leader chốt), còn lại để `idle`. Không đụng `daily-reporter`.
+   - **Không xoá** `awaitingLeader` cũ — các mục chờ Leader chỉ được bỏ khi Leader đã trả lời; câu hỏi mới chỉ **thêm** mục mới.
 4. **Gọi song song** các sub-agent đã chọn (Agent tool, `subagent_type` = id). Mỗi prompt gồm: câu hỏi gốc, phần họ cần trả lời, tài khoản + khoảng thời gian cần xem, và phần ngữ cảnh liên quan từ bước 1. Yêu cầu trả lời bằng số liệu thật có nguồn. Có bộ phận cần kết quả của bộ phận khác (VD Compliance soát copy của Creative) thì chạy sau.
 5. **Tổng hợp** vào `reports/hoi-dap/YYYY-MM-DD-<slug>.md`:
    ```markdown
@@ -37,7 +38,7 @@ Làm đúng **Quy trình hỏi đáp (`/hoi`)** trong `CLAUDE.md`:
    - ...
    ```
 6. **Cập nhật state**:
-   - Từng bộ phận: `done` (hoặc `waiting` nếu có điều cần Leader quyết), điền `summary` và `recommendations`.
+   - Từng bộ phận được chọn: `done` (hoặc `waiting` nếu có điều cần Leader quyết), điền `summary` và `recommendations`. Nếu bộ phận đó đang có đề xuất chưa xong từ câu hỏi trước, giữ lại đề xuất cũ còn hiệu lực và thêm đề xuất mới lên đầu.
    - Thêm vào **đầu** mảng `questions` (giữ tối đa 20): `{ "id", "date", "question", "shortAnswer", "agents": [...ids], "file" }`.
    - Thêm vào đầu `reports`. Cập nhật `assistant` (`status: "done"`, `message` = trả lời ngắn, `reportFile`), `awaitingLeader` nếu có, `updatedAt` (ISO +07:00).
    - Chạy vòng kiểm tra JSON `data/*.js` trong `CLAUDE.md`.
