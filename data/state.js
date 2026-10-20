@@ -3,11 +3,16 @@
 // status hợp lệ: idle | working | reporting | waiting | done | alert
 window.OFFICE_STATE = {
   "demo": false,
-  "updatedAt": "2026-10-17T10:45:00+07:00",
-  "activeBrief": null,
+  "updatedAt": "2026-10-20T09:00:00+07:00",
+  "activeBrief": {
+    "id": "q-20261020-vi-sao-cpm-tang",
+    "title": "Vì sao CPM tăng từ 09/10 đến nay, nên làm gì?",
+    "type": "question",
+    "file": "reports/hoi-dap/2026-10-20-vi-sao-cpm-tang.md"
+  },
   "assistant": {
-    "status": "idle",
-    "message": "Sẵn sàng nhận brief.",
+    "status": "working",
+    "message": "Đang hỏi Analyst + Media Buyer về CPM tăng.",
     "reportFile": ""
   },
   "agents": {
@@ -26,8 +31,8 @@ window.OFFICE_STATE = {
       "reportFile": ""
     },
     "media-buyer": {
-      "status": "idle",
-      "task": "",
+      "status": "working",
+      "task": "Xem cấu trúc, ngân sách, tệp & chồng chéo đối tượng có làm CPM tăng không",
       "summary": "",
       "recommendations": [],
       "reportFile": ""
@@ -40,8 +45,8 @@ window.OFFICE_STATE = {
       "reportFile": ""
     },
     "performance-analyst": {
-      "status": "idle",
-      "task": "",
+      "status": "working",
+      "task": "Phân tích CPM theo ngày/campaign/placement từ 09/10, tìm nguyên nhân",
       "summary": "",
       "recommendations": [],
       "reportFile": ""
