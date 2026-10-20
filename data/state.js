@@ -3,7 +3,7 @@
 // status hợp lệ: idle | working | reporting | waiting | done | alert
 window.OFFICE_STATE = {
   "demo": false,
-  "updatedAt": "2026-10-20T09:20:00+07:00",
+  "updatedAt": "2026-10-20T09:45:00+07:00",
   "activeBrief": {
     "id": "q-20261020-vi-sao-cpm-tang",
     "title": "Vì sao CPM tăng từ 09/10 đến nay, nên làm gì?",
@@ -11,9 +11,9 @@ window.OFFICE_STATE = {
     "file": "reports/hoi-dap/2026-10-20-vi-sao-cpm-tang.md"
   },
   "assistant": {
-    "status": "working",
-    "message": "Analyst đã nộp phân tích CPM; đang chờ Media Buyer.",
-    "reportFile": ""
+    "status": "done",
+    "message": "CPM +29% (93k→120k) chủ yếu vì tài khoản tự đấu giá với chính mình: 2 tệp Fashionista/Mommy bị nhân ra 13 ad set ở 8 campaign, ngân sách bị sửa ~30 lần trong 12 ngày, và tiền rút khỏi campaign rẻ nhất (Lách 20Jan). Thiệt hại thật là tin nhắn -30%; chi phí/tin nhắn chỉ +12%. Cách sửa: mỗi tệp giữ 1 ad set tốt nhất + ngừng sửa ngân sách 72 giờ.",
+    "reportFile": "reports/hoi-dap/2026-10-20-vi-sao-cpm-tang.md"
   },
   "agents": {
     "strategy-research": {
@@ -31,11 +31,37 @@ window.OFFICE_STATE = {
       "reportFile": ""
     },
     "media-buyer": {
-      "status": "working",
+      "status": "waiting",
       "task": "Xem cấu trúc, ngân sách, tệp & chồng chéo đối tượng có làm CPM tăng không",
-      "summary": "",
-      "recommendations": [],
-      "reportFile": ""
+      "summary": "2 tệp interest giống hệt (Fashionista, Mommy) chạy ở 13 ad set/8 campaign — 58% chi tiêu tự đấu giá với nhau; 11 ad set chia 6,3tr/ngày nên không ad set nào đủ ~50 tin nhắn/tuần để thoát learning.",
+      "recommendations": [
+        {
+          "id": "m1",
+          "text": "Tệp Mommy: giữ Lách Dup13Oct › INTEREST-20KM-MOMMY (82k/TN); tắt NuSauSinh_T9 › Trị thâm MESS, TONGHOP_T10 › NUSAUSINH và campaign NuSauSinh_T10",
+          "priority": "cao"
+        },
+        {
+          "id": "m2",
+          "text": "Tệp Fashionista: giữ NuVP_T9 › Triệt lông MESS (81k/TN); tắt Lách Dup13Oct › INTEREST-10KM-FASHIONISTA và TONGHOP_T10 › NUVP (rồi tắt campaign TONGHOP_T10)",
+          "priority": "cao"
+        },
+        {
+          "id": "m3",
+          "text": "23/10: Lách Dup13Oct 1.000.000 → 1.200.000; NuVP_T9 800.000 → 960.000",
+          "priority": "trung bình"
+        },
+        {
+          "id": "m4",
+          "text": "Sau 23/10: NamLGBT đổi pin 10km Q10 → HCM +20km; ad set khách mới loại trừ engagement_last7days, KH NTSPA, customer_fp (sửa cùng 1 lần)",
+          "priority": "trung bình"
+        },
+        {
+          "id": "m5",
+          "text": "HIFU: tới 27/10 dưới 5 tin nhắn/7 ngày thì tắt, chuyển ad sang ad set Triệt lông",
+          "priority": "thấp"
+        }
+      ],
+      "reportFile": "reports/hoi-dap/2026-10-20-vi-sao-cpm-tang.md"
     },
     "tracking-crm": {
       "status": "idle",
@@ -52,11 +78,6 @@ window.OFFICE_STATE = {
         {
           "id": "a1",
           "text": "Giữ nguyên ngân sách mọi campaign tới ~23/10; sau đó mỗi lần chỉnh tối đa ±20%, cách nhau ≥48h",
-          "priority": "cao"
-        },
-        {
-          "id": "a2",
-          "text": "Tăng 'Lách – Dup13Oct' 800k → ~960k/ngày (21/10); 48h sau nếu chi phí/tin nhắn <100k thì +20% tiếp",
           "priority": "cao"
         },
         {
@@ -113,8 +134,27 @@ window.OFFICE_STATE = {
       "reportFile": "reports/daily/2026-10-16.md"
     }
   },
-  "awaitingLeader": [],
+  "awaitingLeader": [
+    {
+      "from": "media-buyer",
+      "text": "Chọn campaign chính: (A) giữ Lách Dup › Mommy + NuVP_T9 › Triệt lông (team khuyên) hay (B) dồn hết vào TONGHOP_T10?"
+    },
+    {
+      "from": "media-buyer",
+      "text": "Có bật lại Lách 20Jan bản gốc không? Team khuyên KHÔNG để tránh trùng tệp."
+    },
+    {
+      "from": "performance-analyst",
+      "text": "Mục tiêu tuần này: giữ số tin nhắn (về ~6,5tr/ngày) hay giữ chi phí/tin nhắn < 100k (giữ ngân sách hiện tại)?"
+    }
+  ],
   "reports": [
+    {
+      "date": "2026-10-20",
+      "title": "Hỏi đáp: Vì sao CPM tăng từ 09/10?",
+      "file": "reports/hoi-dap/2026-10-20-vi-sao-cpm-tang.md",
+      "summary": "Tự đấu giá do trùng tệp + sửa ngân sách liên tục; tin nhắn -30%. Gộp mỗi tệp còn 1 ad set, ngừng sửa ngân sách 72h."
+    },
     {
       "date": "2026-10-17",
       "title": "Báo cáo Ads ngày 16/10 — NTSpa's Women",
@@ -122,5 +162,17 @@ window.OFFICE_STATE = {
       "summary": "Hiệu quả tốt hơn TB tuần nhưng chi tiêu giảm 38%, CPM tăng. 3 cảnh báo vàng."
     }
   ],
-  "questions": []
+  "questions": [
+    {
+      "id": "q-20261020-vi-sao-cpm-tang",
+      "date": "2026-10-20",
+      "question": "Vì sao CPM tăng từ 09/10 đến nay, nên làm gì?",
+      "shortAnswer": "CPM +29% (93k→120k) chủ yếu vì tài khoản tự đấu giá với chính mình: 2 tệp Fashionista/Mommy bị nhân ra 13 ad set ở 8 campaign, ngân sách bị sửa ~30 lần trong 12 ngày, và tiền rút khỏi campaign rẻ nhất (Lách 20Jan). Thiệt hại thật là tin nhắn -30%; chi phí/tin nhắn chỉ +12%. Cách sửa: mỗi tệp giữ 1 ad set tốt nhất + ngừng sửa ngân sách 72 giờ.",
+      "agents": [
+        "performance-analyst",
+        "media-buyer"
+      ],
+      "file": "reports/hoi-dap/2026-10-20-vi-sao-cpm-tang.md"
+    }
+  ]
 };
