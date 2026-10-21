@@ -225,7 +225,9 @@
     function updateWalker(a, dt) {
       const w = a.walker;
       const st = statusOf(a.def.id);
-      const wants = WALKING[st] ? st : null;
+      // Báo động chỉ chạy vào phòng Leader một lần cho mỗi đợt; sau đó ngồi tại bàn với bong bóng "!".
+      if (st !== "alert") w.alertShown = false;
+      const wants = WALKING[st] && !(st === "alert" && w.alertShown) ? st : null;
 
       if (w.phase === "seat") {
         w.x = a.seat.x; w.y = a.seat.y;
@@ -251,7 +253,10 @@
         w.frame += dt * 6;
         if (arrived) {
           if (w.phase === "go") { w.phase = "stay"; w.timer = w.kind === "alert" ? 4 : 2.5; }
-          else { w.phase = "seat"; w.timer = w.kind === "alert" ? 4 : 3; }
+          else {
+            w.phase = "seat"; w.timer = 3;
+            if (w.kind === "alert") w.alertShown = true;
+          }
         }
       }
     }

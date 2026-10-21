@@ -64,7 +64,7 @@
       if (!id || !e) { tooltip.hidden = true; return; }
       const box = document.querySelector(".office-wrap").getBoundingClientRect();
       let title, line;
-      if (id === "leader") { title = "LEADER · BẠN"; line = `${(state.awaitingLeader || []).length} việc chờ bạn duyệt · bấm để hỏi team / viết brief`; }
+      if (id === "leader") { title = "LEADER · BẠN"; line = `${pending().length} việc chờ bạn duyệt · bấm để hỏi team / viết brief`; }
       else if (id === "assistant") { title = "CLAUDE CODE"; line = (state.assistant && state.assistant.message) || "Trợ lý điều phối & báo cáo"; }
       else if (id === "daily-reporter") {
         const acc = firstAccount(), d = acc && acc.data.days[acc.data.days.length - 1];
@@ -121,10 +121,80 @@
     }).join("")}</ul>`;
   }
 
+  // ---------- Chờ bạn duyệt: đã đọc / trả lời ----------
+  // Id ổn định của một mục (FNV-1a 32-bit của from|text) — server.js tính giống hệt.
+  function itemId(it) {
+    let h = 0x811c9dc5;
+    const str = `${it.from || ""}|${it.text || ""}`;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h.toString(16).padStart(8, "0");
+  }
+  // Đánh dấu đã đọc trên máy này (dùng khi không chạy server, và để ẩn ngay không chờ tải lại).
+  const ackedLocal = () => new Set(store.get("acked", []));
+  function ackLocal(ids) {
+    const all = [...ackedLocal(), ...ids];
+    store.set("acked", all.slice(-300));
+  }
+  const pending = () => { const a = ackedLocal(); return (state.awaitingLeader || []).filter((it) => !a.has(itemId(it))); };
+
   function awaitingHtml() {
-    const list = state.awaitingLeader || [];
+    const list = pending();
     if (!list.length) return `<p class="muted">Không có việc nào chờ bạn duyệt.</p>`;
-    return list.map((w) => `<div class="card"><div class="card-title"><b>${esc(nameOf(w.from))}</b></div>${esc(w.text)}</div>`).join("");
+    const ab = (t) => /\(A\)/.test(t) && /\(B\)/.test(t);
+    return `<div class="await-head"><span class="muted">${list.length} mục chưa xử lý</span><button type="button" class="btn btn-mini-ok" data-ack-all>✓ Đã đọc hết</button></div>` +
+      list.map((w) => {
+        const id = itemId(w);
+        return `<div class="card await-card" data-item="${id}">
+          <div class="card-title"><b>${esc(nameOf(w.from))}</b></div>${esc(w.text)}
+          <div class="await-actions">
+            <button type="button" class="btn btn-mini-ok" data-ack="${id}">✓ Đã đọc</button>
+            <button type="button" class="btn btn-mini" data-reply="${id}">↩ Trả lời</button>
+            ${ab(w.text) ? `<button type="button" class="btn btn-mini" data-quick="${id}" data-val="Chọn A">Chọn A</button><button type="button" class="btn btn-mini" data-quick="${id}" data-val="Chọn B">Chọn B</button>` : ""}
+          </div>
+          <div class="await-reply" hidden><textarea rows="2" placeholder="Bạn chốt thế nào? Team sẽ ghi nhớ cho các lần sau."></textarea>
+            <button type="button" class="btn btn-mini-ok" data-answer="${id}">Lưu câu trả lời</button></div>
+        </div>`;
+      }).join("");
+  }
+
+  function decisionsHtml(n) {
+    const list = (state.leaderDecisions || []).slice(0, n);
+    if (!list.length) return "";
+    return `<h3>Bạn đã chốt</h3>` + list.map((d) => `<div class="card decision"><span class="muted">${esc(d.date)} · ${esc(nameOf(d.from))}</span><br>${esc(clip(d.question, 120))}<br><b>→ ${esc(d.answer)}</b></div>`).join("");
+  }
+
+  async function postJson(url, body) {
+    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || r.statusText);
+    return j;
+  }
+
+  async function ackItems(ids) {
+    ackLocal(ids);
+    if (bridge.server) {
+      try { await postJson("api/ack", { ids }); } catch (e) { toast(`Chưa ghi được vào state.js (${e.message}) — đã ẩn trên máy này`); }
+    }
+    await reloadState(false);
+    applyState(true);
+  }
+
+  async function answerItem(id, answer) {
+    const it = (state.awaitingLeader || []).find((x) => itemId(x) === id);
+    if (!it || !answer.trim()) return;
+    if (bridge.server) {
+      try {
+        await postJson("api/answer", { id, answer });
+        ackLocal([id]);
+        toast("Đã lưu — team sẽ dùng quyết định này cho các lần sau");
+      } catch (e) { toast(`Không lưu được: ${e.message}`); return; }
+    } else {
+      await copyText(`/hoi Leader chốt: ${it.text} → ${answer}`);
+      ackLocal([id]);
+      toast("Đã copy lệnh — dán vào Claude Code để team ghi nhận");
+    }
+    await reloadState(false);
+    applyState(true);
   }
 
   function reportsHtml() {
@@ -375,6 +445,7 @@
     return `
       <div class="who"><span data-avatar></span><div><div class="who-no">01</div><h2>BÀN LEADER</h2><div class="muted">Bạn hỏi — team research & góp ý — bạn tự set Ads</div></div></div>
       <h3>Chờ bạn duyệt</h3>${awaitingHtml()}
+      ${decisionsHtml(3)}
       <div class="tabs" role="tablist">
         <button type="button" class="tab ${tab === "hoi" ? "active" : ""}" role="tab" aria-selected="${tab === "hoi"}" data-tab="hoi">❓ Hỏi team</button>
         <button type="button" class="tab ${tab === "brief" ? "active" : ""}" role="tab" aria-selected="${tab === "brief"}" data-tab="brief">✎ Brief chiến dịch</button>
@@ -677,6 +748,24 @@
     }
   });
   panel.addEventListener("click", async (e) => {
+    const ack = e.target.closest("[data-ack]");
+    if (ack) { await ackItems([ack.dataset.ack]); return; }
+    if (e.target.closest("[data-ack-all]")) {
+      const ids = pending().map(itemId);
+      if (ids.length && confirm(`Đánh dấu đã đọc ${ids.length} mục?`)) await ackItems(ids);
+      return;
+    }
+    const reply = e.target.closest("[data-reply]");
+    if (reply) {
+      const box = reply.closest(".await-card").querySelector(".await-reply");
+      box.hidden = !box.hidden;
+      if (!box.hidden) box.querySelector("textarea").focus();
+      return;
+    }
+    const quick = e.target.closest("[data-quick]");
+    if (quick) { await answerItem(quick.dataset.quick, quick.dataset.val); return; }
+    const ans = e.target.closest("[data-answer]");
+    if (ans) { await answerItem(ans.dataset.answer, ans.closest(".await-reply").querySelector("textarea").value); return; }
     const dl = e.target.closest("[data-dalam]");
     if (dl) {
       store.set("dalam-draft", dl.dataset.dalam);
@@ -703,7 +792,7 @@
       ${last ? `<span>Hôm qua: <b>chi ${short(last.spend)} · ${num(last.messages)} TN · ${num(last.leads)} lead</b></span><span>Cảnh báo: <b>${nAlerts}</b></span>` : ""}
       <span>${isQuestion() ? "Câu hỏi" : "Brief"}: <b>${esc((state.activeBrief && state.activeBrief.title) || "—")}</b></span>
       <span>Xong: <b>${done}/${BRIEF_AGENTS.length}</b> · Đang làm: <b>${working}</b></span>
-      <span>Chờ duyệt: <b>${(state.awaitingLeader || []).length}</b></span>
+      <span>Chờ duyệt: <b>${pending().length}</b></span>
       <span>Cập nhật: <b>${esc(fmtTime(state.updatedAt))}</b></span>`;
   }
 
@@ -713,7 +802,8 @@
     config = window.ADS_CONFIG || { accounts: [], kpi: {} };
     daily = window.ADS_DAILY || { accounts: {} };
     changelog = window.ADS_CHANGELOG || { entries: [] };
-    office.setState(state);
+    // Văn phòng chỉ thấy các mục chưa đọc (bong bóng "!", nhãn "n việc chờ duyệt").
+    office.setState(Object.assign({}, state, { awaitingLeader: pending() }));
     office.setDaily(daily);
     renderStatusbar();
     // Chỉ vẽ lại panel khi dữ liệu thật sự đổi (tránh panel nhảy lên đầu mỗi lần tự cập nhật),
@@ -805,6 +895,9 @@
         }
       }
       renderStatusbar();
+    } else if (ev.type === "state") {
+      if (!replay) reloadState(false);
+      return;
     } else if (ev.type === "text") {
       if (!replay) L.say("assistant", ev.text.replace(/\/[\w-]+\s*/g, "").trim() || "Đang suy nghĩ…", 4000);
       logLine(ev, `Claude Code: ${clip(ev.text, 120)}`, "muted");

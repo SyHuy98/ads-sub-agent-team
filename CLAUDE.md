@@ -17,7 +17,7 @@ Luôn trả lời Leader bằng **tiếng Việt**, ngắn gọn, ưu tiên vi�
 3. Không bịa số liệu. Ghi rõ nguồn và khoảng thời gian. Không chép dữ liệu cá nhân của khách hàng (tên, SĐT, email từ lead) vào báo cáo hay `data/state.js`.
 
 ## Quy trình xử lý brief (`/brief`)
-0. **Đọc bài học cũ**: đọc `reports/bai-hoc.md` và báo cáo ngày mới nhất (`data/daily.js`), đưa phần liên quan vào prompt cho các agent.
+0. **Đọc bài học cũ**: đọc `leaderDecisions` trong `data/state.js` (Leader đã chốt gì), `reports/bai-hoc.md` và báo cáo ngày mới nhất (`data/daily.js`), đưa phần liên quan vào prompt cho các agent.
 1. **Nhận brief**: đọc file trong `briefs/` hoặc nội dung Leader dán vào. Nếu là nội dung dán vào, lưu thành `briefs/YYYY-MM-DD-<slug>.md`. Nếu thiếu thông tin quan trọng (mục tiêu, ngân sách, tài khoản), hỏi Leader trước khi giao việc.
 2. **Mở văn phòng**: cập nhật `data/state.js` — `demo: false`, `activeBrief`, `assistant.status = "working"`, các agent được giao chuyển `working` với `task` cụ thể, agent không được giao để `idle`. Xoá `recommendations`/`summary` cũ.
 3. **Giao việc**: gọi các sub-agent được giao **song song** bằng Agent tool (`subagent_type` = tên agent). Prompt cho mỗi agent gồm toàn bộ brief, tài khoản/campaign liên quan, phần việc riêng của họ, và kết quả của bộ phận khác nếu cần (VD: Compliance soát copy của Creative → chạy Compliance sau Creative).
@@ -47,6 +47,8 @@ Leader chỉ cần gõ một câu hỏi; team tự research, phân tích rồi t
 - `status` thêm `alert` (chỉ dùng cho `performance-analyst` khi báo cáo ngày có cảnh báo đỏ — nhân vật chạy vào phòng Leader).
 - `activeBrief`: `null` hoặc `{ id, title, file, type }` với `type` = `"brief"` (mặc định) hoặc `"question"`.
 - `awaitingLeader`: **không bao giờ xoá khi bắt đầu việc mới** — chỉ bỏ mục nào Leader đã trả lời/chốt. Bộ phận đang `waiting` vì việc cũ thì giữ `waiting` nếu không được giao việc mới.
+- `leaderDecisions`: các câu Leader đã trả lời trên web (Bàn Leader › Chờ bạn duyệt › Trả lời), mới nhất ở đầu, tối đa 50: `{ date, from, question, answer }`. `server.js` ghi mục này và tự bỏ mục khỏi `awaitingLeader` khi Leader bấm Đã đọc / Trả lời. Mọi quy trình phải tôn trọng các quyết định này và **không hỏi lại** câu đã chốt.
+- Báo cáo ngày chỉ thêm **1 mục gộp** cảnh báo đỏ (+ tối đa 2 câu hỏi cần chốt) vào `awaitingLeader`, không thêm mỗi cảnh báo một mục.
 - `questions`: mảng hỏi đáp, mới nhất ở đầu, tối đa 20 mục: `{ id, date, question, shortAnswer, agents: [id...], file }`.
 - Id agent: `strategy-research`, `creative-specialist`, `media-buyer`, `tracking-crm`, `performance-analyst`, `compliance-qa`, `daily-reporter`.
 - Web (`index.html`) tự đọc lại file này mỗi 10 giây, nên cập nhật sau mỗi bước để Leader thấy team đang làm gì.

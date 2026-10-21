@@ -7,7 +7,7 @@ Leader hỏi team: $ARGUMENTS
 
 Làm đúng **Quy trình hỏi đáp (`/hoi`)** trong `CLAUDE.md`:
 
-1. **Ngữ cảnh**: đọc `reports/bai-hoc.md`, `data/daily.js` (báo cáo ngày mới nhất), `data/config.js` (tài khoản active, KPI). Câu hỏi không nói tài khoản thì dùng tài khoản active đầu tiên.
+1. **Ngữ cảnh**: đọc `leaderDecisions` trong `data/state.js` (các quyết định Leader đã chốt — phải tôn trọng, không hỏi lại), `reports/bai-hoc.md`, `data/daily.js` (báo cáo ngày mới nhất), `data/config.js` (tài khoản active, KPI). Câu hỏi không nói tài khoản thì dùng tài khoản active đầu tiên.
 2. **Chọn bộ phận**: nếu câu hỏi có `[giao: ...]` thì dùng đúng danh sách đó. Nếu không, chọn 2–4 bộ phận theo bảng trong `CLAUDE.md` và ghi một dòng lý do. Câu hỏi đơn giản, tra số là ra, thì 1 bộ phận cũng được.
 3. **Mở văn phòng** (`data/state.js`):
    - `activeBrief = { "id": "q-YYYYMMDD-<slug>", "title": <câu hỏi rút gọn ≤ 80 ký tự>, "type": "question", "file": "reports/hoi-dap/YYYY-MM-DD-<slug>.md" }`

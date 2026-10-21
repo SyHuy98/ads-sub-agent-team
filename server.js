@@ -188,6 +188,50 @@ function handleLine(ctx, line) {
   }
 }
 
+// ---------- Leader đọc / trả lời mục "Chờ bạn duyệt" (ghi thẳng data/state.js) ----------
+const STATE_FILE = path.join(ROOT, "data", "state.js");
+const STATE_MARK = "window.OFFICE_STATE = ";
+
+// Id ổn định của một mục chờ duyệt (FNV-1a 32-bit của from|text) — web tính giống hệt.
+function itemId(it) {
+  let h = 0x811c9dc5;
+  const str = `${it.from || ""}|${it.text || ""}`;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(16).padStart(8, "0");
+}
+
+function nowVN() {
+  const d = new Date(Date.now() + 7 * 3600 * 1000);
+  return d.toISOString().replace(/\.\d+Z$/, "+07:00");
+}
+
+// Đọc → sửa → ghi file tạm rồi đổi tên. Trả null nếu state.js đang hỏng (không ghi gì).
+function editState(fn) {
+  const raw = fs.readFileSync(STATE_FILE, "utf8");
+  const at = raw.indexOf(STATE_MARK);
+  if (at < 0) return null;
+  let st;
+  try { st = JSON.parse(raw.slice(at + STATE_MARK.length).trim().replace(/;\s*$/, "")); } catch (e) { return null; }
+  const result = fn(st);
+  st.updatedAt = nowVN();
+  const tmp = `${STATE_FILE}.tmp-${process.pid}`;
+  fs.writeFileSync(tmp, raw.slice(0, at) + STATE_MARK + JSON.stringify(st, null, 2) + ";\n");
+  fs.renameSync(tmp, STATE_FILE);
+  return result;
+}
+
+// Bỏ các mục Leader đã xử lý; hết cảnh báo của báo cáo ngày thì 06 thôi báo động.
+function removeAwaiting(st, ids) {
+  const list = st.awaitingLeader || [];
+  const removed = list.filter((it) => ids.includes(itemId(it)));
+  st.awaitingLeader = list.filter((it) => !ids.includes(itemId(it)));
+  const analyst = st.agents && st.agents["performance-analyst"];
+  if (analyst && analyst.status === "alert" && !st.awaitingLeader.some((it) => it.from === "daily-reporter")) {
+    analyst.status = "idle";
+  }
+  return removed;
+}
+
 // ---------- HTTP ----------
 const MIME = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
@@ -274,6 +318,26 @@ async function handle(req, res) {
     emit({ type: "job", phase: "queued", jobId: job.id, job: publicJob(job), queued: queue.length });
     startNext();
     return sendJson(res, 200, { jobId: job.id, position: current && current.job.id !== job.id ? queue.length : 0 });
+  }
+
+  if ((p === "/api/ack" || p === "/api/answer") && req.method === "POST") {
+    let body;
+    try { body = JSON.parse(await readBody(req) || "{}"); } catch (e) { return sendJson(res, 400, { error: "JSON không hợp lệ" }); }
+    const ids = p === "/api/ack" ? [].concat(body.ids || []).map(String) : [String(body.id || "")];
+    const answer = String(body.answer || "").trim().slice(0, 2000);
+    if (!ids.length || !ids[0]) return sendJson(res, 400, { error: "Thiếu id" });
+    if (p === "/api/answer" && !answer) return sendJson(res, 400, { error: "Thiếu câu trả lời" });
+    const removed = editState((st) => {
+      const gone = removeAwaiting(st, ids);
+      if (p === "/api/answer" && gone.length) {
+        st.leaderDecisions = [{ date: nowVN().slice(0, 10), from: gone[0].from, question: gone[0].text, answer }]
+          .concat(st.leaderDecisions || []).slice(0, 50);
+      }
+      return gone;
+    });
+    if (removed === null) return sendJson(res, 409, { error: "data/state.js đang lỗi định dạng — chưa ghi được" });
+    emit({ type: "state", reason: p.slice(5), count: removed.length });
+    return sendJson(res, 200, { ok: true, removed: removed.length });
   }
 
   if (p === "/api/stop" && req.method === "POST") {

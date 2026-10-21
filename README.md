@@ -46,6 +46,12 @@ Bấm vào bàn từng người để xem nhiệm vụ, kết quả và **đề 
 
 Báo cáo ngày trên TV là số liệu thật. Các bộ phận 02–07 ở trạng thái "Rảnh" cho tới khi bạn giao brief đầu tiên.
 
+## Chờ bạn duyệt
+Các câu hỏi cần bạn chốt và cảnh báo đỏ của báo cáo ngày hiện ở Bàn Leader › **Chờ bạn duyệt**:
+- **✓ Đã đọc**: bỏ mục khỏi danh sách. **✓ Đã đọc hết**: bỏ tất cả. Khi bạn đã đọc hết cảnh báo, Analyst (06) thôi báo động.
+- **↩ Trả lời** (hoặc **Chọn A / Chọn B**): câu trả lời được lưu vào mục **Bạn đã chốt**. Team đọc các quyết định này trước mỗi việc mới và không hỏi lại.
+- Khi chạy `node server.js`, thao tác ghi thẳng vào `data/state.js`. Nếu chỉ mở `index.html` thì "Đã đọc" chỉ lưu trên trình duyệt đó, còn "Trả lời" sẽ copy lệnh để bạn dán vào Claude Code.
+
 ## Hỏi team (cách giao việc nhanh nhất)
 Không cần viết brief dài, chỉ cần hỏi:
 1. Bấm **❓ Hỏi team** (hoặc phòng Leader) → tab **Hỏi team** → gõ câu hỏi. Ví dụ:
