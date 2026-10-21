@@ -230,6 +230,21 @@ details[open] summary { margin-bottom: 6px; }
 
 .model-tag { font-family: var(--body); font-size: 15px; letter-spacing: 0; padding: 0 5px; color: #15161f; background: #c6b6d4; box-shadow: 0 0 0 1px var(--line); text-transform: none; }
 
+/* ----- xem báo cáo trong web ----- */
+.report-dialog { width: min(900px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0; border: 0; background: var(--panel); color: var(--text); box-shadow: 0 0 0 4px var(--line), 0 12px 0 4px rgba(0,0,0,0.4); }
+.report-dialog::backdrop { background: rgba(10, 11, 18, 0.7); }
+.dlg-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 4px solid var(--line); background: var(--bg-2); }
+.dlg-title { color: var(--muted); word-break: break-all; }
+.dlg-head a { margin-right: 10px; }
+.dlg-body { padding: 8px 20px 20px; overflow: auto; max-height: calc(100vh - 120px); font-size: 20px; }
+.dlg-body .md-h { color: var(--accent); font-weight: normal; margin: 18px 0 6px; }
+.dlg-body h2.md-h { font-size: 30px; } .dlg-body h3.md-h { font-size: 25px; } .dlg-body h4.md-h, .dlg-body h5.md-h { font-size: 22px; color: var(--text); }
+.dlg-body .md-list { margin: 6px 0; padding-left: 26px; }
+.dlg-body .md-quote { margin: 8px 0; padding: 6px 12px; border-left: 4px solid var(--accent); color: var(--muted); background: var(--bg-2); }
+.dlg-body .md-code { background: var(--bg); padding: 10px; overflow: auto; box-shadow: 0 0 0 2px var(--line); }
+.dlg-body .md-table { overflow-x: auto; }
+.dlg-body b { color: #fff; font-weight: normal; text-decoration: underline; text-decoration-color: rgba(242,194,48,0.5); }
+
 /* ----- trực tiếp (server cầu nối) ----- */
 .livelog { margin-top: 18px; background: var(--panel); padding: 8px 12px; box-shadow: 0 0 0 4px var(--line); }
 .live-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 4px; }

@@ -51,6 +51,18 @@
     return ["#1d2550", "#33407a"];
   }
 
+  // Đi dọc đường path với tốc độ cho trước; trả về true khi đã tới điểm cuối.
+  function stepAlong(w, speed, dt) {
+    let step = speed * dt;
+    while (step > 0 && w.path.length) {
+      const p = w.path[0];
+      const dx = p.x - w.x, dy = p.y - w.y, d = Math.hypot(dx, dy);
+      if (d <= step) { w.x = p.x; w.y = p.y; w.path = w.path.slice(1); step -= d; }
+      else { w.x += (dx / d) * step; w.y += (dy / d) * step; step = 0; }
+    }
+    return !w.path.length;
+  }
+
   function shortMoney(v) {
     if (v == null || isNaN(v)) return "—";
     if (v >= 1e6) return (v / 1e6).toLocaleString("vi-VN", { maximumFractionDigits: 1 }) + "tr";
@@ -116,14 +128,17 @@
       S.px(c, 224, 36, 92, 50, "#c6b6d4");
     }
 
+    function drawWallStatic(c) {
+      S.px(c, 0, 0, W, 30, "#5d6b7d");
+      S.px(c, 0, 28, W, 2, "#4a5666");
+      S.px(c, 292, 5, 24, 18, "#3d4756");
+    }
+
     function drawWall(c, t) {
       const hour = new Date().getHours();
       const [sky1, sky2] = skyColor(hour);
-      S.px(c, 0, 0, W, 30, "#5d6b7d");
-      S.px(c, 0, 28, W, 2, "#4a5666");
       // cửa sổ nhỏ góc phải
       const wx = 292;
-      S.px(c, wx, 5, 24, 18, "#3d4756");
       S.px(c, wx + 2, 7, 20, 14, sky1);
       S.px(c, wx + 2, 7, 20, 5, sky2);
       S.px(c, wx + 11, 7, 2, 14, "#3d4756");
@@ -214,6 +229,11 @@
 
       if (w.phase === "seat") {
         w.x = a.seat.x; w.y = a.seat.y;
+        if (wants !== w.lastWanted) {
+          // vừa chuyển sang nộp báo cáo / báo động → đứng dậy gần như ngay
+          w.lastWanted = wants;
+          if (wants) w.timer = Math.min(w.timer, 0.4);
+        }
         if (!wants) return;
         w.timer -= dt;
         if (w.timer <= 0) {
@@ -227,30 +247,33 @@
         if (w.timer <= 0 || wants !== w.kind) { w.phase = "back"; w.path = w.back; }
       }
       if (w.phase === "go" || w.phase === "back") {
-        let step = WALK_SPEED * dt;
-        while (step > 0 && w.path.length) {
-          const p = w.path[0];
-          const dx = p.x - w.x, dy = p.y - w.y, d = Math.hypot(dx, dy);
-          if (d <= step) { w.x = p.x; w.y = p.y; w.path = w.path.slice(1); step -= d; }
-          else { w.x += (dx / d) * step; w.y += (dy / d) * step; step = 0; }
-        }
+        const arrived = stepAlong(w, WALK_SPEED, dt);
         w.frame += dt * 6;
-        if (!w.path.length) {
+        if (arrived) {
           if (w.phase === "go") { w.phase = "stay"; w.timer = w.kind === "alert" ? 4 : 2.5; }
           else { w.phase = "seat"; w.timer = w.kind === "alert" ? 4 : 3; }
         }
       }
     }
 
+    // Phần cảnh không đổi (sàn, thảm, phòng Leader, cây) vẽ một lần vào canvas riêng.
+    const bg = document.createElement("canvas");
+    bg.width = W; bg.height = H;
+    (function paintStatic(c) {
+      drawFloor(c);
+      drawWallStatic(c);
+      drawLeaderRoom(c);
+      drawDecor(c);
+      S.plant(c, 108, 34);
+      S.plant(c, 202, 34);
+    })(bg.getContext("2d"));
+
     // ---------- Vẽ ----------
     function render(t) {
       const c = lctx;
-      c.clearRect(0, 0, W, H);
-      drawFloor(c);
+      c.drawImage(bg, 0, 0);
       drawWall(c, t);
       drawTV(c, t);
-      drawLeaderRoom(c);
-      drawDecor(c);
 
       const items = [];
 
@@ -274,9 +297,6 @@
         S.mug(c, LEADER.deskX + 58, LEADER.deskY - 2, t);
         if ((state.awaitingLeader || []).length) S.bubble(c, LEADER.seat.x + 12, LEADER.seat.y - 8, "waiting", t);
       } });
-      S.plant(c, 108, 34);
-      S.plant(c, 202, 34);
-
       // Trợ lý Claude Code
       const aSt = statusOf("assistant");
       items.push({ y: ASSIST.deskY - 1, draw() {
@@ -408,15 +428,9 @@
         if (w.timer <= 0) { w.phase = "back"; w.path = LEADER_ROUTE.slice(0, -1).reverse().concat([{ x: LEADER.seat.x, y: LEADER.seat.y }]); }
         return;
       }
-      let step = WALK_SPEED * 1.8 * dt;
-      while (step > 0 && w.path.length) {
-        const p = w.path[0];
-        const dx = p.x - w.x, dy = p.y - w.y, d = Math.hypot(dx, dy);
-        if (d <= step) { w.x = p.x; w.y = p.y; w.path = w.path.slice(1); step -= d; }
-        else { w.x += (dx / d) * step; w.y += (dy / d) * step; step = 0; }
-      }
+      const arrived = stepAlong(w, WALK_SPEED * 1.8, dt);
       w.frame += dt * 7;
-      if (!w.path.length) {
+      if (arrived) {
         if (w.phase === "go") { w.phase = "stay"; w.timer = 1.6; w.onArrive && w.onArrive(); w.onArrive = null; }
         else { w.phase = "seat"; w.x = LEADER.seat.x; w.y = LEADER.seat.y; }
       }
@@ -486,8 +500,11 @@
     window.addEventListener("resize", resize);
     resize();
 
+    // Pixel art không cần 60 khung hình/giây: giới hạn ~30 để đỡ tốn CPU/pin.
+    const FRAME_MS = 1000 / 30;
     let last = performance.now();
     function loop(now) {
+      if (now - last < FRAME_MS - 1) { requestAnimationFrame(loop); return; }
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
       agents.forEach((a) => updateWalker(a, dt));

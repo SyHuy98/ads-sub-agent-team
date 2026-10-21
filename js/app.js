@@ -26,6 +26,9 @@
   const agentState = (id) => (state.agents && state.agents[id]) || {};
   const statusPill = (st) => `<span class="pill s-${esc(st)}">${esc(window.STATUS_LABEL[st] || st)}</span>`;
   const MODEL_LABEL = { opus: "Opus", sonnet: "Sonnet", haiku: "Haiku", fable: "Fable" };
+  // Link tới file báo cáo: chỉ cho đường dẫn tương đối trong repo (chặn javascript:, http: lạ…).
+  const safeHref = (f) => /^(reports|briefs)\/[\w.\-\/]+\.md$/.test(String(f || "")) ? f : "#";
+  const reportLink = (f, text) => `<a class="report-link" href="${esc(safeHref(f))}" target="_blank" rel="noopener">${text}</a>`;
   const nameOf = (id) => id === "assistant" ? "Claude Code" : id === "leader" ? "Leader" : ((agentDef(id) || {}).name || id);
 
   function slugify(s) {
@@ -127,7 +130,7 @@
   function reportsHtml() {
     const list = state.reports || [];
     if (!list.length) return `<p class="muted">Chưa có báo cáo.</p>`;
-    return list.map((r) => `<div class="card"><div class="card-title"><a href="${esc(r.file)}" target="_blank" rel="noopener">${esc(r.title)}</a><span class="muted">${esc(r.date)}</span></div>${esc(r.summary || "")}</div>`).join("");
+    return list.map((r) => `<div class="card"><div class="card-title">${reportLink(r.file, esc(r.title))}<span class="muted">${esc(r.date)}</span></div>${esc(r.summary || "")}</div>`).join("");
   }
 
   function viewOverview() {
@@ -242,7 +245,7 @@
       <h3>Cảnh báo</h3>${alerts.length ? alerts.map((a) => `<div class="card alert-${a.level === "đỏ" ? "red" : "yellow"}"><b>[${esc(a.level)}] ${esc(a.scope || "")}</b><br>${esc(a.text)}</div>`).join("") : `<p class="muted">Không có cảnh báo.</p>`}
       ${(data.topCampaigns || []).length ? `<h3>Campaign chi tiêu nhiều nhất</h3><table class="kpi-table"><thead><tr><th>Campaign</th><th>Chi</th><th>TN</th><th>Lead</th></tr></thead><tbody>${data.topCampaigns.map((c) => `<tr><td>${esc(c.name)}</td><td>${short(c.spend)}</td><td>${num(c.messages)} · ${short(c.costPerMessage)}</td><td>${num(c.leads)} · ${short(c.costPerLead)}</td></tr>`).join("")}</tbody></table>` : ""}
       <h3>Đề xuất — Leader tự thực hiện</h3>${recsHtml("daily-reporter", s.recommendations)}
-      ${daily.reportFile ? `<p><a href="${esc(daily.reportFile)}" target="_blank" rel="noopener">Mở báo cáo ngày đầy đủ →</a></p>` : ""}
+      ${daily.reportFile ? `<p>${reportLink(daily.reportFile, "Mở báo cáo ngày đầy đủ →")}</p>` : ""}
       <h3>KPI đang áp dụng</h3>${kpiSummaryHtml()}`;
   }
 
@@ -317,7 +320,7 @@
       <h3>Nhiệm vụ hiện tại</h3><p>${esc(s.task || "Chưa được giao việc.")}</p>
       <h3>Tóm tắt kết quả</h3><p>${s.summary ? esc(s.summary) : `<span class="muted">Chưa nộp kết quả.</span>`}</p>
       <h3>Đề xuất — Leader tự thực hiện</h3>${recsHtml(id, s.recommendations)}
-      ${s.reportFile ? `<h3>Báo cáo</h3><p><a href="${esc(s.reportFile)}" target="_blank" rel="noopener">${esc(s.reportFile)}</a></p>` : ""}
+      ${s.reportFile ? `<h3>Báo cáo</h3><p>${reportLink(s.reportFile, esc(s.reportFile))}</p>` : ""}
       <p class="muted" style="margin-top:16px">Agent chỉ đọc dữ liệu & góp ý. Mọi chỉnh sửa trên Ads Manager do bạn tự làm.</p>`;
   }
 
@@ -329,7 +332,7 @@
       <h3>Nhật ký làm việc ${bridge.ok ? "(trực tiếp)" : ""}</h3>
       ${bridge.ok ? `<div id="live-log-panel">${liveLogHtml(30)}</div>` : `<p class="muted">Chạy <code>node server.js</code> rồi mở http://localhost:8000 để giao việc thẳng từ web và xem team làm việc trực tiếp.</p>`}
       <h3>Lời nhắn cho Leader</h3><p>${esc(a.message || "Sẵn sàng nhận brief.")}</p>
-      ${a.reportFile ? `<p><a href="${esc(a.reportFile)}" target="_blank" rel="noopener">Mở báo cáo tổng hợp →</a></p>` : ""}
+      ${a.reportFile ? `<p>${reportLink(a.reportFile, "Mở báo cáo tổng hợp →")}</p>` : ""}
       <h3>Cách giao việc</h3>
       <div class="card">${bridge.ok
         ? "1. Phòng Leader → <b>Hỏi team</b>: gõ câu hỏi → <b>▶ Gửi cho team</b>.<br>2. Leader mang việc ra bàn Claude Code, Claude Code giao cho các bộ phận phù hợp.<br>3. Xem từng người làm việc trên văn phòng; xong thì câu trả lời hiện ở Bàn Leader."
@@ -398,7 +401,7 @@
         <div class="card-title"><b>❓ ${esc(q.question)}</b><span class="muted">${esc(q.date)}</span></div>
         <p>${esc(q.shortAnswer || "Đang xử lý…")}</p>
         <div class="agent-chips">${(q.agents || []).map((id) => `<span class="chip-sm">${esc((agentDef(id) || {}).no || "")} ${esc((agentDef(id) || {}).short || id)}</span>`).join("")}
-        ${q.file ? `<a href="${esc(q.file)}" target="_blank" rel="noopener">Xem trả lời đầy đủ →</a>` : ""}</div>
+        ${q.file ? reportLink(q.file, "Xem trả lời đầy đủ →") : ""}</div>
       </div>`).join("");
   }
 
@@ -544,6 +547,7 @@
       return;
     }
     try {
+      if (window.Notification && Notification.permission === "default") Notification.requestPermission().catch(() => {});
       const r = await fetch("api/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, text }) });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || r.statusText);
@@ -586,6 +590,85 @@
     if (pick) pick.addEventListener("change", () => { view.account = pick.value; renderPanel(); });
   }
 
+  // ---------- Xem báo cáo .md ngay trong web ----------
+  const dlg = document.getElementById("report-dialog");
+
+  function inlineMd(t) {
+    return t
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+      .replace(/(^|[\s(])_([^_]+)_(?=[\s).,]|$)/g, "$1<i>$2</i>")
+      .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, txt, url) => /^(https?:|reports\/|briefs\/)/.test(url) ? `<a href="${url}" target="_blank" rel="noopener">${txt}</a>` : txt);
+  }
+
+  // Markdown tối giản cho báo cáo: tiêu đề, đoạn, danh sách, bảng, trích dẫn, code.
+  function renderMarkdown(md) {
+    const lines = esc(md).split("\n");
+    const out = [];
+    let i = 0;
+    const isRow = (l) => /^\s*\|.*\|\s*$/.test(l);
+    const cells = (l) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => inlineMd(c.trim()));
+    while (i < lines.length) {
+      const l = lines[i];
+      if (/^```/.test(l)) {
+        const buf = []; i++;
+        while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
+        out.push(`<pre class="md-code">${buf.join("\n")}</pre>`); i++; continue;
+      }
+      const h = /^(#{1,4})\s+(.*)$/.exec(l);
+      if (h) { out.push(`<h${h[1].length + 1} class="md-h">${inlineMd(h[2])}</h${h[1].length + 1}>`); i++; continue; }
+      if (isRow(l) && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i + 1])) {
+        const head = cells(l); i += 2;
+        const body = [];
+        while (i < lines.length && isRow(lines[i])) body.push(cells(lines[i++]));
+        out.push(`<div class="md-table"><table class="kpi-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>${body.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
+        continue;
+      }
+      if (/^\s*([-*]|\d+\.)\s+/.test(l)) {
+        const ordered = /^\s*\d+\./.test(l), buf = [];
+        while (i < lines.length && /^\s*([-*]|\d+\.)\s+/.test(lines[i])) buf.push(lines[i++].replace(/^\s*([-*]|\d+\.)\s+/, ""));
+        out.push(`<${ordered ? "ol" : "ul"} class="md-list">${buf.map((x) => `<li>${inlineMd(x)}</li>`).join("")}</${ordered ? "ol" : "ul"}>`);
+        continue;
+      }
+      if (/^&gt;\s?/.test(l)) {
+        const buf = [];
+        while (i < lines.length && /^&gt;\s?/.test(lines[i])) buf.push(lines[i++].replace(/^&gt;\s?/, ""));
+        out.push(`<blockquote class="md-quote">${inlineMd(buf.join(" "))}</blockquote>`); continue;
+      }
+      if (/^\s*(---|\*\*\*)\s*$/.test(l)) { out.push("<hr>"); i++; continue; }
+      if (!l.trim()) { i++; continue; }
+      const buf = [];
+      while (i < lines.length && lines[i].trim() && !/^(#{1,4}\s|```|\s*([-*]|\d+\.)\s|&gt;)/.test(lines[i]) && !isRow(lines[i])) buf.push(lines[i++]);
+      out.push(`<p>${inlineMd(buf.join(" "))}</p>`);
+    }
+    return out.join("\n");
+  }
+
+  async function openReport(href) {
+    if (!dlg || location.protocol === "file:" || href === "#") return false;
+    try {
+      const r = await fetch(href, { cache: "no-store" });
+      if (!r.ok) return false;
+      dlg.querySelector(".dlg-title").textContent = href;
+      dlg.querySelector(".dlg-raw").href = href;
+      dlg.querySelector(".dlg-body").innerHTML = renderMarkdown(await r.text());
+      dlg.showModal();
+      dlg.querySelector(".dlg-body").scrollTop = 0;
+      return true;
+    } catch (e) { return false; }
+  }
+
+  document.addEventListener("click", async (e) => {
+    const a = e.target.closest("a.report-link");
+    if (!a) return;
+    const href = a.getAttribute("href");
+    if (href === "#") { e.preventDefault(); return; }
+    if (location.protocol === "file:" || !dlg) return; // mở tab mới như thường
+    e.preventDefault();
+    if (!(await openReport(href))) window.open(href, "_blank", "noopener");
+  });
+  if (dlg) dlg.addEventListener("click", (e) => { if (e.target === dlg || e.target.closest("[data-close]")) dlg.close(); });
+
   panel.addEventListener("change", (e) => {
     const cb = e.target;
     if (cb.matches && cb.matches(".recs input[type=checkbox]")) {
@@ -624,7 +707,8 @@
       <span>Cập nhật: <b>${esc(fmtTime(state.updatedAt))}</b></span>`;
   }
 
-  function applyState() {
+  let lastSig = "";
+  function applyState(force) {
     state = window.OFFICE_STATE || { agents: {} };
     config = window.ADS_CONFIG || { accounts: [], kpi: {} };
     daily = window.ADS_DAILY || { accounts: {} };
@@ -632,8 +716,16 @@
     office.setState(state);
     office.setDaily(daily);
     renderStatusbar();
-    // không vẽ lại bàn Leader khi đang gõ form
-    if (view.kind !== "brief") renderPanel();
+    // Chỉ vẽ lại panel khi dữ liệu thật sự đổi (tránh panel nhảy lên đầu mỗi lần tự cập nhật),
+    // và không vẽ lại khi Leader đang gõ trong form.
+    const sig = JSON.stringify([state, config, daily, changelog]);
+    if (!force && sig === lastSig) return;
+    lastSig = sig;
+    const typing = panel.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+    if (typing) return;
+    const top = panel.scrollTop;
+    renderPanel();
+    panel.scrollTop = top;
   }
 
   // Đọc lại các file data/*.js bằng thẻ <script> mới (chạy được cả khi mở file:// trực tiếp).
@@ -666,7 +758,7 @@
   function liveLogHtml(n) {
     const rows = liveLog.slice(-n).reverse();
     const head = bridge.current
-      ? `<div class="live-head"><span>Đang làm: <b>${esc(clip(bridge.current.text || KIND_LABEL[bridge.current.kind], 60))}</b>${bridge.queue ? ` · ${bridge.queue} việc chờ` : ""}</span><button type="button" class="btn btn-mini-stop" data-stop>■ Dừng</button></div>`
+      ? `<div class="live-head"><span>Đang làm: <b>${esc(clip(bridge.current.text || KIND_LABEL[bridge.current.kind], 60))}</b> <span class="muted" data-elapsed="${esc(bridge.current.startedAt || "")}">${elapsed(bridge.current.startedAt)}</span>${bridge.queue ? ` · ${bridge.queue} việc chờ` : ""}</span><button type="button" class="btn btn-mini-stop" data-stop>■ Dừng</button></div>`
       : "";
     return head + (rows.length ? `<ul class="live-list">${rows.map((r) => `<li class="lv-${r.cls}"><span class="muted">${hhmm(r.at)}</span> ${esc(r.text)}</li>`).join("")}</ul>` : `<p class="muted">Chưa có việc nào. Gửi câu hỏi ở Bàn Leader.</p>`);
   }
@@ -692,6 +784,8 @@
       bridge.queue = ev.queued || 0;
       if (ev.phase === "queued") {
         logLine(ev, `Xếp hàng ${KIND_LABEL[j.kind] || j.kind}: ${clip(j.text, 60)}`, "muted");
+      } else if (ev.phase === "removed") {
+        logLine(ev, `Đã bỏ khỏi hàng đợi: ${clip(j.text, 60)}`, "muted");
       } else if (ev.phase === "start") {
         bridge.current = j;
         logLine(ev, `Claude Code nhận ${KIND_LABEL[j.kind] || j.kind}: ${clip(j.text, 60)}`, "start");
@@ -706,6 +800,7 @@
         if (!replay) {
           L.say("assistant", ok ? "Xong rồi!" : "Có lỗi…", 5000);
           toast(ok ? "Team đã trả lời ✓" : ev.phase === "stopped" ? "Đã dừng việc" : "Việc bị lỗi — xem nhật ký ở bàn Claude Code");
+          notifyDone(ok, j);
           reloadState(false).then(() => { if (ok && j.kind === "hoi") { store.set("leader-tab", "hoi"); open("leader"); } });
         }
       }
@@ -725,11 +820,34 @@
       L.setStatus(ev.agent, replay ? "done" : "reporting");
       if (!replay) {
         clearTimeout(doneTimers[ev.agent]);
-        doneTimers[ev.agent] = setTimeout(() => L.setStatus(ev.agent, "done"), 8000);
+        doneTimers[ev.agent] = setTimeout(() => L.setStatus(ev.agent, "done"), 12000);
       }
     }
     renderLiveLog();
   }
+
+  // Thời gian đã chạy của việc hiện tại, cập nhật mỗi giây.
+  function elapsed(iso) {
+    if (!iso) return "";
+    const sec = Math.max(0, Math.round((Date.now() - new Date(iso)) / 1000));
+    return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+  }
+  setInterval(() => {
+    document.querySelectorAll("[data-elapsed]").forEach((el) => { el.textContent = elapsed(el.dataset.elapsed); });
+  }, 1000);
+
+  // Báo khi team xong việc lúc Leader đang ở tab khác: đổi tiêu đề trang + thông báo trình duyệt (nếu cho phép).
+  const BASE_TITLE = document.title;
+  function notifyDone(ok, j) {
+    if (!document.hidden) return;
+    document.title = `${ok ? "✓ Team đã trả lời" : "✗ Việc bị lỗi"} — ${BASE_TITLE}`;
+    try {
+      if (window.Notification && Notification.permission === "granted") {
+        new Notification(ok ? "Team đã trả lời ✓" : "Việc bị lỗi", { body: clip(j.result, 140) });
+      }
+    } catch (e) { /* trình duyệt không hỗ trợ */ }
+  }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) document.title = BASE_TITLE; });
 
   async function stopJob() {
     if (!bridge.current) return;
@@ -779,7 +897,6 @@
   document.getElementById("btn-overview").addEventListener("click", () => { view = { kind: "overview" }; office.select(null); renderPanel(); });
 
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => office.resize());
-  applyState();
-  renderPanel();
+  applyState(true);
   connectBridge();
 })();
