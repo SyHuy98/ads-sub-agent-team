@@ -14,6 +14,8 @@ const ROOT = __dirname;
 const PORT = Number(process.env.PORT) || 8000;
 const HOST = "127.0.0.1";
 const CLAUDE_BIN = process.env.CLAUDE_BIN || "claude";
+// Model của Claude Code điều phối. Sub-agent dùng model ghi trong .claude/agents/*.md (dòng `model:`).
+const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "opus";
 const IS_WIN = process.platform === "win32";
 const LOG_DIR = path.join(ROOT, "logs", "jobs");
 
@@ -87,6 +89,7 @@ function startNext() {
     "-p",
     "--output-format", "stream-json",
     "--verbose",
+    "--model", CLAUDE_MODEL,
     "--permission-mode", "acceptEdits",
     "--append-system-prompt-file", path.join(ROOT, ".claude", "headless-prompt.md"),
     "--allowedTools", ALLOWED_TOOLS.join(","),
@@ -216,7 +219,7 @@ const server = http.createServer(async (req, res) => {
 
   if (p === "/api/status" && req.method === "GET") {
     return sendJson(res, 200, {
-      ok: true, claude: !!claudeVersion, claudeVersion,
+      ok: true, claude: !!claudeVersion, claudeVersion, model: CLAUDE_MODEL,
       current: current ? publicJob(current.job) : null,
       queue: queue.map(publicJob),
       events: recent.slice(-60),
@@ -262,5 +265,5 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`Ads Team HQ: http://localhost:${PORT}`);
-  console.log(claudeVersion ? `Claude Code: ${claudeVersion} — có thể giao việc từ web.` : "⚠ Không tìm thấy lệnh `claude` — web chỉ chạy chế độ copy lệnh.");
+  console.log(claudeVersion ? `Claude Code: ${claudeVersion} (điều phối: ${CLAUDE_MODEL}) — có thể giao việc từ web.` : "⚠ Không tìm thấy lệnh `claude` — web chỉ chạy chế độ copy lệnh.");
 });

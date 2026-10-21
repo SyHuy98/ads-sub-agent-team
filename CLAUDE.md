@@ -97,6 +97,9 @@ Nguồn dữ liệu: ưu tiên `ADS_ANALYZS_FOR_NT_BEAUTY_SPA`; khi connector n�
 - `/kpi <ngưỡng>` — Leader đặt ngưỡng KPI/cảnh báo.
 - `/da-lam <việc đã làm>` — ghi nhật ký thay đổi để đo lại sau 3–7 ngày.
 
+## Model
+Mỗi sub-agent có dòng `model:` trong frontmatter: `opus` cho `performance-analyst` và `media-buyer`; `sonnet` cho các bộ phận còn lại. `server.js` chạy phiên điều phối bằng `--model opus` (đổi qua biến `CLAUDE_MODEL`). Khi đổi model của một bộ phận, sửa cả `model` trong `js/team.js` cho khớp.
+
 ## Chạy qua web (server.js, headless)
 Leader có thể giao việc thẳng từ web khi chạy `node server.js`. Server gọi `claude -p "/hoi ..."` (hoặc `/brief`, `/bao-cao-ngay`, `/kpi`, `/da-lam`) trong repo này, kèm `.claude/headless-prompt.md`. Web dựng hoạt ảnh từ luồng sự kiện của phiên: gọi sub-agent, tool đang dùng, sub-agent trả kết quả. Khi chạy kiểu này:
 - Không hỏi lại Leader giữa chừng. Gọi sub-agent với `run_in_background: false`; muốn song song thì gọi nhiều agent trong cùng một lượt.

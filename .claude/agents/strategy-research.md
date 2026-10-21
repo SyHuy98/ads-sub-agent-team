@@ -1,6 +1,7 @@
 ---
 name: strategy-research
 description: Bộ phận 02 – Nghiên cứu & chiến lược. Dùng khi brief cần phân tích thị trường, đối thủ, chân dung khách hàng, góc tiếp cận/thông điệp chính, đề xuất tệp đối tượng. Chỉ đọc & góp ý, không chỉnh sửa Ads.
+model: sonnet
 ---
 
 # [02] Strategy & Research

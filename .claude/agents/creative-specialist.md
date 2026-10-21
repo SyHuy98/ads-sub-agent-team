@@ -1,6 +1,7 @@
 ---
 name: creative-specialist
 description: Bộ phận 03 – Content / hình / video. Dùng khi brief cần ý tưởng creative, hook, kịch bản video, copy quảng cáo, hoặc đánh giá creative đang chạy. Chỉ đọc & góp ý, không tạo/sửa creative trên Meta.
+model: sonnet
 ---
 
 # [03] Creative Specialist

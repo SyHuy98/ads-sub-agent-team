@@ -25,6 +25,7 @@
   const agentDef = (id) => TEAM.agents.find((a) => a.id === id);
   const agentState = (id) => (state.agents && state.agents[id]) || {};
   const statusPill = (st) => `<span class="pill s-${esc(st)}">${esc(window.STATUS_LABEL[st] || st)}</span>`;
+  const MODEL_LABEL = { opus: "Opus", sonnet: "Sonnet", haiku: "Haiku", fable: "Fable" };
   const nameOf = (id) => id === "assistant" ? "Claude Code" : id === "leader" ? "Leader" : ((agentDef(id) || {}).name || id);
 
   function slugify(s) {
@@ -145,7 +146,7 @@
       <ul class="team-list">
         <li data-open="leader"><span class="no">01</span><span>Bạn — Leader</span><span class="muted">hỏi / brief</span></li>
         <li data-open="assistant"><span class="no">CC</span><span>Claude Code — Trợ lý báo cáo</span>${statusPill((state.assistant && state.assistant.status) || "idle")}</li>
-        ${TEAM.agents.map((a) => `<li data-open="${a.id}"><span class="no">${a.no}</span><span>${esc(a.name)}</span>${statusPill(agentState(a.id).status || "idle")}</li>`).join("")}
+        ${TEAM.agents.map((a) => `<li data-open="${a.id}"><span class="no">${a.no}</span><span>${esc(a.name)} <span class="model-tag">${esc(MODEL_LABEL[a.model] || "")}</span></span>${statusPill(agentState(a.id).status || "idle")}</li>`).join("")}
       </ul>
       <h3>Báo cáo gần đây</h3>${reportsHtml()}`;
   }
@@ -213,7 +214,7 @@
     const ids = accountIds();
     const acc = firstAccount(view.account);
     const s = agentState("daily-reporter");
-    const head = `<div class="who"><span data-avatar></span><div><div class="who-no">08</div><h2>BÁO CÁO NGÀY</h2><div class="muted">Daily Reporter · tự chạy mỗi sáng ~7h52</div></div></div>`;
+    const head = `<div class="who"><span data-avatar></span><div><div class="who-no">08 · <span class="model-tag">${esc(MODEL_LABEL[(agentDef("daily-reporter") || {}).model] || "")}</span></div><h2>BÁO CÁO NGÀY</h2><div class="muted">Daily Reporter · tự chạy mỗi sáng ~7h52</div></div></div>`;
     if (!acc) {
       return `${head}${statusPill(s.status || "idle")}${runDailyBtn()}
         <div class="card">Chưa có số liệu. Sáng mai lịch hẹn giờ sẽ tự chạy, hoặc gõ <code>/bao-cao-ngay</code> trong Claude Code.</div>
@@ -311,7 +312,7 @@
   function viewAgent(id) {
     const d = agentDef(id), s = agentState(id);
     return `
-      <div class="who"><span data-avatar></span><div><div class="who-no">${d.no}</div><h2>${esc(d.name)}</h2><div class="muted">${esc(d.sub)}</div></div></div>
+      <div class="who"><span data-avatar></span><div><div class="who-no">${d.no}${d.model ? ` · <span class="model-tag">${esc(MODEL_LABEL[d.model] || d.model)}</span>` : ""}</div><h2>${esc(d.name)}</h2><div class="muted">${esc(d.sub)}</div></div></div>
       ${statusPill(s.status || "idle")}
       <h3>Nhiệm vụ hiện tại</h3><p>${esc(s.task || "Chưa được giao việc.")}</p>
       <h3>Tóm tắt kết quả</h3><p>${s.summary ? esc(s.summary) : `<span class="muted">Chưa nộp kết quả.</span>`}</p>
@@ -614,7 +615,7 @@
     const last = acc && acc.data.days[acc.data.days.length - 1];
     const nAlerts = acc ? Object.values(daily.accounts).reduce((n, a) => n + (a.alerts || []).length, 0) : 0;
     statusbar.innerHTML = `
-      <span class="conn ${bridge.ok ? "on" : ""}" title="${esc(bridge.version || "")}">● ${bridge.ok ? (bridge.current ? "Claude Code đang làm việc" : "Claude Code đã kết nối") : bridge.server ? "Server chạy nhưng thiếu lệnh claude" : "Chưa kết nối — chạy node server.js"}</span>
+      <span class="conn ${bridge.ok ? "on" : ""}" title="${esc(bridge.version || "")}">● ${bridge.ok ? `Claude Code${bridge.model ? ` (${MODEL_LABEL[bridge.model] || bridge.model})` : ""} ${bridge.current ? "đang làm việc" : "đã kết nối"}` : bridge.server ? "Server chạy nhưng thiếu lệnh claude" : "Chưa kết nối — chạy node server.js"}</span>
       ${state.demo ? `<span class="demo-badge">BRIEF MẪU</span>` : ""}
       ${last ? `<span>Hôm qua: <b>chi ${short(last.spend)} · ${num(last.messages)} TN · ${num(last.leads)} lead</b></span><span>Cảnh báo: <b>${nAlerts}</b></span>` : ""}
       <span>${isQuestion() ? "Câu hỏi" : "Brief"}: <b>${esc((state.activeBrief && state.activeBrief.title) || "—")}</b></span>
@@ -745,6 +746,7 @@
       bridge.server = true;
       bridge.ok = !!st.claude;
       bridge.version = st.claudeVersion;
+      bridge.model = st.model;
       (st.events || []).forEach((e) => handleEvent(e, true));
       bridge.current = st.current || null;
       bridge.queue = (st.queue || []).length;

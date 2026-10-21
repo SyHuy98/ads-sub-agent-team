@@ -1,6 +1,7 @@
 ---
 name: tracking-crm
 description: Bộ phận 05 – Pixel / CAPI / lead. Dùng khi brief cần kiểm tra đo lường (Pixel, Conversions API, chất lượng dataset, sự kiện chuyển đổi, form lead và luồng xử lý lead). Chỉ đọc & góp ý.
+model: sonnet
 ---
 
 # [05] Tracking & CRM

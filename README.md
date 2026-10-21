@@ -84,6 +84,20 @@ Vào Bàn Leader › **KPI & ngưỡng cảnh báo**, điền ngưỡng rồi b�
 2. Team ghi số liệu 7 ngày trước thay đổi làm mốc. Sau 3 ngày (đổi ngân sách/giá thầu) hoặc 7 ngày (đổi creative/target), báo cáo ngày tự đo lại trước/sau và kết luận tốt/xấu.
 3. Mỗi kết luận được thêm vào `reports/bai-hoc.md`. Team đọc file này trước khi xử lý brief mới, nên càng dùng lâu thì góp ý càng sát với tài khoản của bạn.
 
+## Model của từng bộ phận
+| Bộ phận | Model | Vì sao |
+|---|---|---|
+| Claude Code điều phối (khi chạy qua `server.js`) | Opus | Chọn bộ phận, tổng hợp, viết câu trả lời cuối |
+| 06 Performance Analyst | Opus | Phân tích nhân quả trên số liệu, tính toán nhiều |
+| 04 Media Buyer | Opus | Đề xuất cấu trúc & ngân sách — quyết định liên quan tiền |
+| 02 Strategy & Research | Sonnet | Tìm kiếm, tổng hợp — nhanh, đủ tốt |
+| 03 Creative Specialist | Sonnet | Viết hook/copy nhiều biến thể |
+| 05 Tracking & CRM | Sonnet | Soát pixel/CAPI/lead theo checklist |
+| 07 Compliance & QA | Sonnet | Soát chính sách |
+| 08 Daily Reporter | Sonnet | Báo cáo mỗi ngày, có cấu trúc |
+
+Đổi model: sửa dòng `model:` (`opus` / `sonnet` / `haiku`) trong `.claude/agents/<bộ-phận>.md` (và `model` trong `js/team.js` để web hiển thị đúng). Model điều phối khi chạy web: `CLAUDE_MODEL=sonnet node server.js` (mặc định `opus`). Khi gõ lệnh trực tiếp trong Claude Code, phiên điều phối dùng model bạn chọn bằng `/model`, còn sub-agent vẫn dùng model ghi trong file của nó. Dùng gói Claude (đăng ký) thì Opus tốn hạn mức nhanh hơn Sonnet khoảng 2 lần.
+
 ## Kết nối Meta Ads
 Các bộ phận dùng connector Meta Ads (MCP) bạn đã kết nối trong Claude để **đọc** insights, campaign, ad set, ad, creative, pixel, lead form. Nếu chưa kết nối, team vẫn làm việc dựa trên số liệu bạn đưa trong brief.
 

@@ -1,6 +1,7 @@
 ---
 name: compliance-qa
 description: Bộ phận 07 – Chính sách & kiểm duyệt. Dùng khi cần soát copy/creative/landing theo chính sách quảng cáo Meta (đặc biệt ngành làm đẹp, spa, sức khoẻ), kiểm tra quảng cáo bị từ chối, và QA checklist setup trước khi Leader bấm chạy. Chỉ đọc & góp ý.
+model: sonnet
 ---
 
 # [07] Compliance & QA

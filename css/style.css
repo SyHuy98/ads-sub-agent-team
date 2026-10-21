@@ -228,6 +228,8 @@ details[open] summary { margin-bottom: 6px; }
 .agent-chips { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 6px; }
 .chip-sm { font-size: 16px; padding: 0 6px; background: var(--panel-2); box-shadow: 0 0 0 2px var(--line); }
 
+.model-tag { font-family: var(--body); font-size: 15px; letter-spacing: 0; padding: 0 5px; color: #15161f; background: #c6b6d4; box-shadow: 0 0 0 1px var(--line); text-transform: none; }
+
 /* ----- trực tiếp (server cầu nối) ----- */
 .livelog { margin-top: 18px; background: var(--panel); padding: 8px 12px; box-shadow: 0 0 0 4px var(--line); }
 .live-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 4px; }

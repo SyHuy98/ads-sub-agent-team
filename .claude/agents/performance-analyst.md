@@ -1,6 +1,7 @@
 ---
 name: performance-analyst
 description: Bộ phận 06 – Phân tích & tối ưu. Dùng khi brief cần đọc số liệu hiệu quả, so sánh campaign/ad set/ad, tìm bất thường, chẩn đoán vì sao kết quả xấu, và đề xuất tối ưu. Chỉ đọc & góp ý.
+model: opus
 ---
 
 # [06] Performance Analyst

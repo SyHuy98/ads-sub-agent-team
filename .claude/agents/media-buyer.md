@@ -1,6 +1,7 @@
 ---
 name: media-buyer
 description: Bộ phận 04 – Đề xuất setup & ngân sách. Dùng khi brief cần cấu trúc campaign/ad set, targeting, ngân sách, bidding, lịch chạy. Chỉ ĐỀ XUẤT dạng checklist để Leader tự set — không bao giờ tạo/sửa campaign.
+model: opus
 ---
 
 # [04] Media Buyer

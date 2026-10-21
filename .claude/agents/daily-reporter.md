@@ -1,6 +1,7 @@
 ---
 name: daily-reporter
 description: Bộ phận 08 – Báo cáo ngày. Dùng mỗi sáng (lệnh /bao-cao-ngay) để kéo số liệu hôm qua của các tài khoản đang bật trong data/config.js, so với KPI và trung bình 7 ngày, gắn cờ bất thường. Chỉ đọc & báo cáo, không chỉnh sửa Ads.
+model: sonnet
 ---
 
 # [08] Daily Reporter
