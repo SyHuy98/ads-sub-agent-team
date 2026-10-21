@@ -17,6 +17,8 @@ const CLAUDE_BIN = process.env.CLAUDE_BIN || "claude";
 // Model của Claude Code điều phối. Sub-agent dùng model ghi trong .claude/agents/*.md (dòng `model:`).
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "opus";
 const IS_WIN = process.platform === "win32";
+// Việc chạy quá lâu (treo) sẽ bị dừng để không chặn hàng đợi. Đổi: JOB_TIMEOUT_MIN=60 node server.js
+const JOB_TIMEOUT_MS = (Number(process.env.JOB_TIMEOUT_MIN) || 30) * 60 * 1000;
 const LOG_DIR = path.join(ROOT, "logs", "jobs");
 
 // Lệnh slash tương ứng với từng loại việc web gửi lên.
@@ -78,6 +80,16 @@ function shortTool(name) {
 
 function winQuote(a) { return `"${String(a).replace(/"/g, '""')}"`; }
 
+// Dừng cả cây tiến trình của Claude Code (gồm MCP server con), không chỉ tiến trình chính.
+function killTree(child) {
+  try {
+    if (IS_WIN) spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"]);
+    else process.kill(-child.pid, "SIGTERM");
+  } catch (e) {
+    try { child.kill("SIGTERM"); } catch (e2) { /* đã thoát */ }
+  }
+}
+
 function startNext() {
   if (current || !queue.length) return;
   const job = queue.shift();
@@ -95,10 +107,14 @@ function startNext() {
     "--allowedTools", ALLOWED_TOOLS.join(","),
   ];
   const child = spawn(CLAUDE_BIN, IS_WIN ? args.map(winQuote) : args, {
-    cwd: ROOT, shell: IS_WIN, env: process.env, stdio: ["pipe", "pipe", "pipe"],
+    cwd: ROOT, shell: IS_WIN, env: process.env, stdio: ["pipe", "pipe", "pipe"], detached: !IS_WIN,
   });
   const ctx = { job, child, agentByToolUse: new Map(), buf: "", stderr: "" };
   current = ctx;
+  ctx.timeout = setTimeout(() => {
+    finish(ctx, "error", `Quá ${JOB_TIMEOUT_MS / 60000} phút chưa xong — đã dừng việc này.`);
+    killTree(child);
+  }, JOB_TIMEOUT_MS);
   emit({ type: "job", phase: "start", jobId: job.id, job: publicJob(job), queued: queue.length });
 
   // Nội dung lệnh đi qua stdin để không vướng chuyện escape trên Windows.
@@ -127,6 +143,7 @@ function startNext() {
 function finish(ctx, status, result, cost) {
   const job = ctx.job;
   if (job.status !== "running") return;
+  clearTimeout(ctx.timeout);
   job.status = status;
   job.endedAt = new Date().toISOString();
   if (result != null) job.result = result;
@@ -194,7 +211,9 @@ function readBody(req) {
 
 function serveStatic(req, res, pathname) {
   if (pathname === "/") pathname = "/index.html";
-  const file = path.normalize(path.join(ROOT, decodeURIComponent(pathname)));
+  let decoded;
+  try { decoded = decodeURIComponent(pathname); } catch (e) { res.writeHead(400); return res.end("Bad request"); }
+  const file = path.normalize(path.join(ROOT, decoded));
   const rel = path.relative(ROOT, file);
   // Không cho đọc ra ngoài repo, file ẩn (.git, .claude) hay log.
   if (rel.startsWith("..") || path.isAbsolute(rel) || rel.split(path.sep).some((p) => p.startsWith(".")) || rel.startsWith("logs")) {
@@ -207,8 +226,15 @@ function serveStatic(req, res, pathname) {
   });
 }
 
-const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+const server = http.createServer((req, res) => {
+  handle(req, res).catch((err) => {
+    console.error("Lỗi xử lý request:", err);
+    if (!res.headersSent) sendJson(res, 500, { error: "Lỗi server" }); else res.end();
+  });
+});
+
+async function handle(req, res) {
+  const url = new URL(req.url, "http://localhost");
   const p = url.pathname;
 
   // Chặn trang web khác gọi API qua trình duyệt của Leader.
@@ -251,17 +277,31 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (p === "/api/stop" && req.method === "POST") {
+    // Không gửi jobId (hoặc jobId của việc đang chạy) → dừng việc đang chạy; jobId của việc đang chờ → bỏ khỏi hàng đợi.
+    let body = {};
+    try { body = JSON.parse(await readBody(req) || "{}"); } catch (e) { /* body rỗng */ }
+    const qi = body.jobId ? queue.findIndex((j) => j.id === body.jobId) : -1;
+    if (qi >= 0) {
+      const [job] = queue.splice(qi, 1);
+      job.status = "stopped";
+      emit({ type: "job", phase: "removed", jobId: job.id, job: publicJob(job), queued: queue.length });
+      return sendJson(res, 200, { stopped: true, removed: true });
+    }
     if (!current) return sendJson(res, 200, { stopped: false });
     const ctx = current;
-    const { child } = ctx;
     finish(ctx, "stopped", "Leader đã dừng việc này.");
-    try { IS_WIN ? spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"]) : child.kill("SIGTERM"); } catch (e) { /* bỏ qua */ }
+    killTree(ctx.child);
     return sendJson(res, 200, { stopped: true });
   }
 
   if (req.method === "GET") return serveStatic(req, res, p);
   res.writeHead(405); res.end();
-});
+}
+
+// Tắt server (Ctrl+C) thì dừng luôn việc đang chạy.
+for (const sig of ["SIGINT", "SIGTERM"]) {
+  process.on(sig, () => { if (current) killTree(current.child); process.exit(0); });
+}
 
 server.listen(PORT, HOST, () => {
   console.log(`Ads Team HQ: http://localhost:${PORT}`);
