@@ -40,6 +40,15 @@ const ALLOWED_TOOLS = [
   ...ADS_SERVERS.flatMap((s) => [`mcp__${s}`, `mcp__claude_ai_${s}`]),
 ];
 
+// Quyền cho connector Meta Ads tìm thấy trên máy này (dò lúc khởi động, xem probeConnectors()).
+let adsConnectors = null; // null = chưa dò xong
+let adsRules = [];
+const allowedTools = () => [...new Set([...ALLOWED_TOOLS, ...adsRules])];
+
+// Báo cáo ngày tự chạy trên máy này. DAILY_AT=08:30 để đổi giờ, DAILY_AT=off để tắt.
+const DAILY_AT = (process.env.DAILY_AT || "07:52").trim();
+const DAILY_STATE_FILE = path.join(ROOT, "logs", "daily-scheduler.json");
+
 const AGENT_IDS = ["strategy-research", "creative-specialist", "media-buyer", "tracking-crm",
   "performance-analyst", "compliance-qa", "daily-reporter"];
 
@@ -69,10 +78,18 @@ function emit(ev) {
 }
 
 function publicJob(j) {
-  return j && { id: j.id, kind: j.kind, text: j.text, status: j.status, startedAt: j.startedAt, endedAt: j.endedAt, result: j.result, cost: j.cost };
+  return j && { id: j.id, kind: j.kind, text: j.text, auto: !!j.auto, status: j.status, startedAt: j.startedAt, endedAt: j.endedAt, result: j.result, cost: j.cost };
 }
 
 // ---------- Chạy job ----------
+function enqueue(kind, text, auto) {
+  const job = { id: `job-${Date.now()}-${++jobSeq}`, kind, text, auto: !!auto, prompt: COMMANDS[kind](text), status: "queued" };
+  queue.push(job);
+  emit({ type: "job", phase: "queued", jobId: job.id, job: publicJob(job), queued: queue.length });
+  startNext();
+  return job;
+}
+
 function shortTool(name) {
   const m = /^mcp__(.+?)__(.+)$/.exec(name || "");
   return m ? m[2] : name;
@@ -104,7 +121,7 @@ function startNext() {
     "--model", CLAUDE_MODEL,
     "--permission-mode", "acceptEdits",
     "--append-system-prompt-file", path.join(ROOT, ".claude", "headless-prompt.md"),
-    "--allowedTools", ALLOWED_TOOLS.join(","),
+    "--allowedTools", allowedTools().join(","),
   ];
   const child = spawn(CLAUDE_BIN, IS_WIN ? args.map(winQuote) : args, {
     cwd: ROOT, shell: IS_WIN, env: process.env, stdio: ["pipe", "pipe", "pipe"], detached: !IS_WIN,
@@ -184,8 +201,84 @@ function handleLine(ctx, line) {
       }
     }
   } else if (d.type === "result") {
+    const denied = [...new Set((d.permission_denials || []).map((x) => x.tool_name).filter(Boolean))];
+    if (denied.length) emit({ type: "denied", jobId: job.id, tools: denied });
     finish(ctx, d.is_error ? "error" : "done", d.result || "", d.total_cost_usd);
   }
+}
+
+// ---------- Dò connector Meta Ads của Claude Code trên máy này ----------
+// Chạy `claude -p` tới dòng system/init (liệt kê MCP server) rồi dừng ngay, trước khi gọi model.
+function probeConnectors() {
+  if (!claudeVersion) return;
+  const args = ["-p", "--output-format", "stream-json", "--verbose"];
+  const child = spawn(CLAUDE_BIN, IS_WIN ? args.map(winQuote) : args, {
+    cwd: ROOT, shell: IS_WIN, env: process.env, stdio: ["pipe", "pipe", "ignore"], detached: !IS_WIN,
+  });
+  let buf = "", done = false;
+  const stop = () => { if (!done) { done = true; clearTimeout(timer); killTree(child); } };
+  const timer = setTimeout(() => { console.log("⚠ Không dò được connector (quá 60 giây)."); stop(); }, 60000);
+  child.stdout.on("data", (c) => {
+    buf += c.toString("utf8");
+    let i;
+    while (!done && (i = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, i); buf = buf.slice(i + 1);
+      let d; try { d = JSON.parse(line); } catch (e) { continue; }
+      if (d.type === "system" && d.subtype === "init") {
+        const servers = (d.mcp_servers || []).filter((m) => /ads|meta|facebook|instagram/i.test(m.name) && m.status !== "failed");
+        adsConnectors = servers.map((m) => m.name);
+        adsRules = servers.map((m) => `mcp__${m.name.replace(/[^A-Za-z0-9_-]/g, "_")}`);
+        console.log(adsConnectors.length
+          ? `Connector Meta Ads: ${adsConnectors.join(", ")}`
+          : "⚠ Không thấy connector Meta Ads trong Claude Code trên máy này — mở Claude Code, gõ /mcp để kiểm tra.");
+        emit({ type: "connectors", ads: adsConnectors });
+        stop();
+      }
+    }
+  });
+  child.on("error", stop);
+  child.stdin.end("ok");
+}
+
+// ---------- Báo cáo ngày tự chạy ----------
+const vnNow = () => new Date(Date.now() + 7 * 3600 * 1000); // đọc bằng getUTC*
+const vnDate = (d) => d.toISOString().slice(0, 10);
+const vnYesterday = () => vnDate(new Date(vnNow().getTime() - 24 * 3600 * 1000));
+
+function readJson(file, fallback) { try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch (e) { return fallback; } }
+
+function lastDailyDate() {
+  try {
+    const raw = fs.readFileSync(path.join(ROOT, "data", "daily.js"), "utf8");
+    const m = /"date"\s*:\s*"(\d{4}-\d{2}-\d{2})"/.exec(raw);
+    return m ? m[1] : null;
+  } catch (e) { return null; }
+}
+
+function dailyStatus() {
+  const st = readJson(DAILY_STATE_FILE, {});
+  return { at: DAILY_AT, enabled: DAILY_AT !== "off", lastReport: lastDailyDate(), lastAttempt: st.lastAt || null, attemptsToday: st.date === vnDate(vnNow()) ? st.attempts : 0 };
+}
+
+function checkDaily() {
+  if (DAILY_AT === "off" || !claudeVersion) return;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(DAILY_AT);
+  if (!m) return;
+  const now = vnNow();
+  if (now.getUTCHours() * 60 + now.getUTCMinutes() < Number(m[1]) * 60 + Number(m[2])) return;
+  const last = lastDailyDate();
+  if (last && last >= vnYesterday()) return;                         // đã có báo cáo của hôm qua
+  const busy = (current && current.job.kind === "bao-cao-ngay") || queue.some((j) => j.kind === "bao-cao-ngay");
+  if (busy) return;
+  const today = vnDate(now);
+  const st = readJson(DAILY_STATE_FILE, {});
+  const attempts = st.date === today ? st.attempts || 0 : 0;
+  if (attempts >= 2) return;                                          // tối đa 2 lần/ngày
+  if (st.date === today && st.lastAt && Date.now() - new Date(st.lastAt).getTime() < 60 * 60 * 1000) return;
+  fs.mkdirSync(path.dirname(DAILY_STATE_FILE), { recursive: true });
+  fs.writeFileSync(DAILY_STATE_FILE, JSON.stringify({ date: today, attempts: attempts + 1, lastAt: new Date().toISOString() }));
+  enqueue("bao-cao-ngay", "", true);
+  console.log(`Tự chạy báo cáo ngày (${DAILY_AT}) — lần thử ${attempts + 1} hôm nay.`);
 }
 
 // ---------- Leader đọc / trả lời mục "Chờ bạn duyệt" (ghi thẳng data/state.js) ----------
@@ -290,6 +383,7 @@ async function handle(req, res) {
   if (p === "/api/status" && req.method === "GET") {
     return sendJson(res, 200, {
       ok: true, claude: !!claudeVersion, claudeVersion, model: CLAUDE_MODEL,
+      adsConnectors, daily: dailyStatus(),
       current: current ? publicJob(current.job) : null,
       queue: queue.map(publicJob),
       events: recent.slice(-60),
@@ -313,10 +407,7 @@ async function handle(req, res) {
     const text = String(body.text || "").trim();
     if (!COMMANDS[kind]) return sendJson(res, 400, { error: `Loại việc không hỗ trợ: ${kind}` });
     if (!text && !["bao-cao", "bao-cao-ngay"].includes(kind)) return sendJson(res, 400, { error: "Thiếu nội dung" });
-    const job = { id: `job-${Date.now()}-${++jobSeq}`, kind, text, prompt: COMMANDS[kind](text), status: "queued" };
-    queue.push(job);
-    emit({ type: "job", phase: "queued", jobId: job.id, job: publicJob(job), queued: queue.length });
-    startNext();
+    const job = enqueue(kind, text);
     return sendJson(res, 200, { jobId: job.id, position: current && current.job.id !== job.id ? queue.length : 0 });
   }
 
@@ -370,4 +461,9 @@ for (const sig of ["SIGINT", "SIGTERM"]) {
 server.listen(PORT, HOST, () => {
   console.log(`Ads Team HQ: http://localhost:${PORT}`);
   console.log(claudeVersion ? `Claude Code: ${claudeVersion} (điều phối: ${CLAUDE_MODEL}) — có thể giao việc từ web.` : "⚠ Không tìm thấy lệnh `claude` — web chỉ chạy chế độ copy lệnh.");
+  console.log(DAILY_AT === "off" ? "Báo cáo ngày tự chạy: TẮT (DAILY_AT=off)." : `Báo cáo ngày tự chạy lúc ${DAILY_AT} (giờ VN) khi server đang mở; mở máy trễ thì chạy bù.`);
+  probeConnectors();
+  // Đợi dò connector xong rồi mới kiểm tra lịch lần đầu.
+  setTimeout(checkDaily, 20000);
+  setInterval(checkDaily, 60000);
 });

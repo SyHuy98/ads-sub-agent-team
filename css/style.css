@@ -315,6 +315,7 @@ code { font-family: var(--body); background: var(--bg); padding: 0 4px; color: v
 }
 .statusbar b { color: var(--text); font-weight: normal; }
 .demo-badge { background: var(--waiting); color: #2a2210; padding: 0 8px; box-shadow: 0 0 0 2px var(--line); }
+.warn-badge { background: var(--alert); color: #fff; padding: 0 8px; box-shadow: 0 0 0 2px var(--line); }
 
 @media (max-width: 1100px) {
   .layout { grid-template-columns: minmax(0, 1fr); }

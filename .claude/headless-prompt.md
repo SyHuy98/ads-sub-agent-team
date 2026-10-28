@@ -5,4 +5,5 @@ Bạn đang chạy ở chế độ headless qua `server.js`: Leader giao việc 
 - Vẫn cập nhật `data/state.js` (và các file `data/*.js` liên quan) như quy trình trong `CLAUDE.md` để web hiển thị đúng kết quả.
 - Chạy lệnh Bash dạng đơn giản, mỗi lệnh một việc (ví dụ `node -e "..."`, `git ...`). Không dùng vòng lặp `for`, ống `|` hay `&&` vì headless chỉ cho phép một số lệnh nhất định.
 - Không commit hay push trừ khi lệnh slash yêu cầu.
+- Nếu tool bị từ chối quyền (permission denied), ghi rõ tên tool đó trong câu trả lời cuối để Leader biết cần cấp quyền gì.
 - Câu trả lời cuối cùng: tiếng Việt, tối đa 8 dòng (trả lời ngắn + việc nên làm + đường dẫn file). Web hiển thị nguyên văn câu này.

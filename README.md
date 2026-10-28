@@ -75,8 +75,11 @@ Hỏi tình hình bất kỳ lúc nào: `/bao-cao`.
 Cũng có thể tự viết file brief vào `briefs/` rồi gõ `/brief briefs/<tên-file>.md`.
 
 ## Báo cáo ngày (bộ phận 08)
-- **Tự chạy mỗi sáng ~7h52** (giờ Việt Nam) bằng lịch hẹn giờ trên Claude Code cloud. Nó kéo số liệu hôm qua của các tài khoản trong `data/config.js`, so với KPI và trung bình 7 ngày, rồi gắn cờ 🟡/🔴.
-- Kết quả được ghi vào `reports/daily/YYYY-MM-DD.md` và `data/daily.js`, sau đó commit lên GitHub. Muốn xem trên web ở máy bạn thì chạy `git pull`.
+- **Tự chạy mỗi sáng 7h52** (giờ Việt Nam) trên máy bạn, miễn là `server.js` đang mở. Mở máy trễ thì server chạy bù ngay khi bật (tối đa 2 lần/ngày, cách nhau ít nhất 60 phút). Nó kéo số liệu hôm qua của các tài khoản trong `data/config.js`, so với KPI và trung bình 7 ngày, rồi gắn cờ 🟡/🔴.
+- Kết quả được ghi vào `reports/daily/YYYY-MM-DD.md` và `data/daily.js` trên máy bạn (không commit/push), web tự hiện.
+- Chạy trên máy vì Claude Code trên máy bạn có sẵn connector Meta Ads. Lịch trên Claude Code cloud không gắn được connector nên báo "không đủ quyền", lịch đó đã tắt.
+- Đổi giờ: `DAILY_AT=08:30 node server.js` (Windows: `set DAILY_AT=08:30` trước khi chạy `start.bat`). Tắt: `DAILY_AT=off`.
+- **Tự mở khi bật máy (Windows):** bấm `Win + R`, gõ `shell:startup`, Enter, rồi tạo shortcut tới `start.bat` trong thư mục vừa mở. `start.bat` chạy server ở cửa sổ thu nhỏ.
 - **TV trong phòng 08** hiện chi tiêu, tin nhắn, lead của hôm qua kèm cột 7 ngày. Đèn TV xanh/vàng/đỏ theo mức cảnh báo. Bấm vào TV để xem bảng chi tiết, biểu đồ 14 ngày và đề xuất.
 - Khi có **cảnh báo đỏ**, nhân vật Analyst (06) chạy vào phòng bạn báo động, và cảnh báo xuất hiện trong mục "Chờ bạn duyệt".
 - Chạy tay bất kỳ lúc nào: `/bao-cao-ngay` (hoặc `/bao-cao-ngay 2026-10-15` cho một ngày cụ thể).
@@ -106,6 +109,8 @@ Vào Bàn Leader › **KPI & ngưỡng cảnh báo**, điền ngưỡng rồi b�
 
 ## Kết nối Meta Ads
 Các bộ phận dùng connector Meta Ads (MCP) bạn đã kết nối trong Claude để **đọc** insights, campaign, ad set, ad, creative, pixel, lead form. Nếu chưa kết nối, team vẫn làm việc dựa trên số liệu bạn đưa trong brief.
+
+Khi khởi động, `server.js` tự dò connector Meta Ads của Claude Code trên máy và cấp quyền đọc cho phiên chạy từ web. Nếu thanh trạng thái hiện **"⚠ Không thấy connector Meta Ads"**, mở Claude Code trong thư mục này, gõ `/mcp` để kiểm tra/kết nối lại, rồi khởi động lại server. Nếu có tool bị chặn quyền khi chạy, nhật ký ở bàn Claude Code hiện dòng **"⚠ Bị chặn quyền: <tên tool>"**.
 
 ## Cấu trúc
 | Đường dẫn | Nội dung |

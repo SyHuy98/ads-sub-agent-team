@@ -20,4 +20,6 @@ Chạy báo cáo ngày cho team Ads. Ngày báo cáo: `$ARGUMENTS` (để trốn
 9. Kiểm tra JSON: `for f in state daily changelog config; do node -e "global.window={};require('./data/$f.js')" || echo LỖI $f; done`.
 10. Trả lời Leader: 3–5 dòng tóm tắt + cảnh báo + số thay đổi vừa đo lại.
 
+Lệnh này tự chạy mỗi sáng do `server.js` trên máy Leader xếp lịch. Không commit hay push: chỉ ghi file để web trên máy đọc.
+
 Chỉ đọc dữ liệu Meta Ads — tuyệt đối không ghi gì lên tài khoản.

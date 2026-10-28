@@ -281,16 +281,26 @@
       <div class="chart-legend"><span><i class="dot s-working"></i>Tin nhắn</span><span><i class="dot s-done"></i>Lead</span><span><i class="dot" style="background:var(--accent)"></i>Chi tiêu</span></div>`;
   }
 
-  const runDailyBtn = () => bridge.ok ? ` <button type="button" class="btn btn-mini-run" data-run-daily>▶ Chạy báo cáo ngày</button>` : "";
+  const runDailyBtn = () => (bridge.ok ? ` <button type="button" class="btn btn-mini-run" data-run-daily>▶ Chạy báo cáo ngày</button>` : "") + scheduleHtml();
+
+  // Lịch tự chạy báo cáo ngày do server.js trên máy Leader đảm nhận.
+  function scheduleHtml() {
+    const d = bridge.daily;
+    if (!bridge.server) return `<p class="muted">Chạy <code>node server.js</code> (hoặc start.bat) để team tự báo cáo mỗi sáng.</p>`;
+    if (!d) return "";
+    if (!d.enabled) return `<p class="muted">Tự chạy báo cáo ngày đang tắt (DAILY_AT=off).</p>`;
+    const at = String(d.at).replace(":", "h");
+    return `<p class="muted">Tự chạy lúc ${esc(at)} trên máy này (mở máy trễ thì chạy bù)${d.lastAttempt ? ` · lần thử gần nhất ${esc(fmtTime(d.lastAttempt))}` : ""}</p>`;
+  }
 
   function viewDaily() {
     const ids = accountIds();
     const acc = firstAccount(view.account);
     const s = agentState("daily-reporter");
-    const head = `<div class="who"><span data-avatar></span><div><div class="who-no">08 · <span class="model-tag">${esc(MODEL_LABEL[(agentDef("daily-reporter") || {}).model] || "")}</span></div><h2>BÁO CÁO NGÀY</h2><div class="muted">Daily Reporter · tự chạy mỗi sáng ~7h52</div></div></div>`;
+    const head = `<div class="who"><span data-avatar></span><div><div class="who-no">08 · <span class="model-tag">${esc(MODEL_LABEL[(agentDef("daily-reporter") || {}).model] || "")}</span></div><h2>BÁO CÁO NGÀY</h2><div class="muted">Daily Reporter · tự chạy mỗi sáng trên máy Leader</div></div></div>`;
     if (!acc) {
       return `${head}${statusPill(s.status || "idle")}${runDailyBtn()}
-        <div class="card">Chưa có số liệu. Sáng mai lịch hẹn giờ sẽ tự chạy, hoặc gõ <code>/bao-cao-ngay</code> trong Claude Code.</div>
+        <div class="card">Chưa có số liệu. Sáng mai server.js sẽ tự chạy, hoặc gõ <code>/bao-cao-ngay</code> trong Claude Code.</div>
         <h3>KPI đang áp dụng</h3>${kpiSummaryHtml()}`;
     }
     const data = acc.data, days = data.days, d = days[days.length - 1], avg = data.avg7 || {}, k = config.kpi || {};
@@ -788,6 +798,7 @@
     const nAlerts = acc ? Object.values(daily.accounts).reduce((n, a) => n + (a.alerts || []).length, 0) : 0;
     statusbar.innerHTML = `
       <span class="conn ${bridge.ok ? "on" : ""}" title="${esc(bridge.version || "")}">● ${bridge.ok ? `Claude Code${bridge.model ? ` (${MODEL_LABEL[bridge.model] || bridge.model})` : ""} ${bridge.current ? "đang làm việc" : "đã kết nối"}` : bridge.server ? "Server chạy nhưng thiếu lệnh claude" : "Chưa kết nối — chạy node server.js"}</span>
+      ${bridge.ok && Array.isArray(bridge.adsConnectors) && !bridge.adsConnectors.length ? `<span class="warn-badge" title="Claude Code trên máy này chưa có connector Meta Ads nên team không đọc được số liệu">⚠ Không thấy connector Meta Ads — mở Claude Code gõ /mcp</span>` : ""}
       ${state.demo ? `<span class="demo-badge">BRIEF MẪU</span>` : ""}
       ${last ? `<span>Hôm qua: <b>chi ${short(last.spend)} · ${num(last.messages)} TN · ${num(last.leads)} lead</b></span><span>Cảnh báo: <b>${nAlerts}</b></span>` : ""}
       <span>${isQuestion() ? "Câu hỏi" : "Brief"}: <b>${esc((state.activeBrief && state.activeBrief.title) || "—")}</b></span>
@@ -873,7 +884,8 @@
       const j = ev.job || {};
       bridge.queue = ev.queued || 0;
       if (ev.phase === "queued") {
-        logLine(ev, `Xếp hàng ${KIND_LABEL[j.kind] || j.kind}: ${clip(j.text, 60)}`, "muted");
+        if (j.auto && bridge.daily) bridge.daily.lastAttempt = ev.at || new Date().toISOString();
+        logLine(ev, j.auto ? `Tự chạy báo cáo ngày (${bridge.daily ? bridge.daily.at : "theo lịch"})` : `Xếp hàng ${KIND_LABEL[j.kind] || j.kind}: ${clip(j.text, 60)}`, "muted");
       } else if (ev.phase === "removed") {
         logLine(ev, `Đã bỏ khỏi hàng đợi: ${clip(j.text, 60)}`, "muted");
       } else if (ev.phase === "start") {
@@ -898,6 +910,13 @@
     } else if (ev.type === "state") {
       if (!replay) reloadState(false);
       return;
+    } else if (ev.type === "connectors") {
+      bridge.adsConnectors = ev.ads || [];
+      renderStatusbar();
+      return;
+    } else if (ev.type === "denied") {
+      logLine(ev, `⚠ Bị chặn quyền: ${(ev.tools || []).join(", ")}`, "err");
+      if (!replay) toast("Có tool bị chặn quyền — xem nhật ký ở bàn Claude Code");
     } else if (ev.type === "text") {
       if (!replay) L.say("assistant", ev.text.replace(/\/[\w-]+\s*/g, "").trim() || "Đang suy nghĩ…", 4000);
       logLine(ev, `Claude Code: ${clip(ev.text, 120)}`, "muted");
@@ -958,6 +977,8 @@
       bridge.ok = !!st.claude;
       bridge.version = st.claudeVersion;
       bridge.model = st.model;
+      bridge.adsConnectors = st.adsConnectors;
+      bridge.daily = st.daily || null;
       (st.events || []).forEach((e) => handleEvent(e, true));
       bridge.current = st.current || null;
       bridge.queue = (st.queue || []).length;

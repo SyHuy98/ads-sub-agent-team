@@ -95,7 +95,7 @@ Nguồn dữ liệu: ưu tiên `ADS_ANALYZS_FOR_NT_BEAUTY_SPA`; khi connector n�
 - `/hoi <câu hỏi> [giao: id,id]` — hỏi team một câu, team research & trả lời (cách giao việc mặc định).
 - `/brief <đường dẫn file | nội dung brief>` — brief chiến dịch đầy đủ (quy trình xử lý brief ở trên).
 - `/bao-cao` — báo cáo nhanh tình hình team và việc đang chờ Leader.
-- `/bao-cao-ngay [YYYY-MM-DD]` — báo cáo Ads ngày (agent 08) + đo lại thay đổi tới hạn. Chạy tự động mỗi sáng ~7h52 bằng lịch hẹn giờ trên Claude Code cloud; khi chạy tự động thì commit `data/` + `reports/` và push.
+- `/bao-cao-ngay [YYYY-MM-DD]` — báo cáo Ads ngày (agent 08) + đo lại thay đổi tới hạn. Chạy tự động mỗi sáng 7h52 (giờ VN) do `server.js` trên máy Leader xếp lịch, mở máy trễ thì chạy bù; chỉ ghi file, không commit/push. Đổi giờ: `DAILY_AT=08:30`, tắt: `DAILY_AT=off`. (Lịch cloud cũ đã tắt vì không gắn được connector Meta Ads.)
 - `/kpi <ngưỡng>` — Leader đặt ngưỡng KPI/cảnh báo.
 - `/da-lam <việc đã làm>` — ghi nhật ký thay đổi để đo lại sau 3–7 ngày.
 
